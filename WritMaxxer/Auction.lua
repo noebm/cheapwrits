@@ -9,6 +9,7 @@ local scan
 local nextRequestAt = 0
 local requestInterval = 0.7 -- Below the API's 100-searches-per-minute limit.
 local timeout = 60
+local progressInterval = 5
 
 frame:Hide()
 for _, event in ipairs({
@@ -57,6 +58,11 @@ local function queueRequest(more)
 end
 
 local function nextTask()
+    if scan.tasks[scan.taskIndex].discovery and #scan.listings > 0 then
+        addon:Print("Found " .. #scan.listings .. " writs. Checking auction prices...")
+        scan.nextProgressAt = GetTime() + progressInterval
+    end
+
     scan.taskIndex = scan.taskIndex + 1
     if scan.tasks[scan.taskIndex] then
         queueRequest()
@@ -95,6 +101,7 @@ function addon:StartScan()
         requestedItems = {},
         listings = {},
         startedAt = GetTime(),
+        nextProgressAt = GetTime() + progressInterval,
         retries = 0,
     }
     queueRequest()
@@ -279,6 +286,16 @@ frame:SetScript("OnUpdate", function()
     end
 
     local task = scan.tasks[scan.taskIndex]
+    if now >= scan.nextProgressAt then
+        if task.discovery then
+            addon:Print("Searching writ listings. Waiting for auction data...")
+        else
+            addon:Print("Scan progress: " .. (scan.taskIndex - 2) .. " checks completed; checking " .. task.name .. ".")
+        end
+
+        scan.nextProgressAt = now + progressInterval
+    end
+
     if scan.phase == "queued" then
         if now >= nextRequestAt and AH.IsThrottledMessageSystemReady() then
             scan.phase = "waiting"

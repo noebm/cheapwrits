@@ -122,11 +122,26 @@ tick(0.2)
 assert(#calls == 1) -- Readiness alone must not bypass the local rate limit.
 tick(0.5)
 lastCall("RequestMoreBrowseResults")
+local messageCount = #addon.messages
+tick(5)
+assert(#addon.messages == messageCount + 1)
+assert(addon.messages[#addon.messages]:find("Searching writ listings", 1, true))
 browse, fullBrowse = { writ, writ, shotWrit, recipe, envelope }, true
 event("AUCTION_HOUSE_BROWSE_RESULTS_ADDED")
 tick()
+assert(addon.messages[#addon.messages]:find("Found 2 writs", 1, true))
 tick()
 lastCall("SendSearchQuery", 10)
+
+-- Report progress while waiting, without spamming chat or issuing more searches.
+messageCount = #addon.messages
+local requestCount = #calls
+tick(3)
+assert(#addon.messages == messageCount)
+tick(1)
+assert(#addon.messages == messageCount + 1 and #calls == requestCount)
+assert(addon.messages[#addon.messages]:find("0 checks completed", 1, true))
+assert(addon.messages[#addon.messages]:find("Craftsman's Writ: Copper Rod", 1, true))
 
 -- Wrong item keys and item IDs cannot complete the current request.
 local callCount = #calls
@@ -163,7 +178,8 @@ lastCall("SendBrowseQuery", "Copper Rod")
 infos[30] = nil
 browse = { rod, rod, recipe }
 event("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-tick()
+tick(5)
+assert(addon.messages[#addon.messages]:find("2 checks completed", 1, true))
 assert(requestedItems[30])
 register(30, "Copper Rod")
 tick()
@@ -194,6 +210,9 @@ tick()
 assert(not frame.shown and #completed == 2)
 assert(completed[1].itemName == "Copper Rod" and completed[1].total == 380)
 assert(completed[2].itemName == "Crafted Solid Shot" and completed[2].total == 425)
+messageCount = #addon.messages
+tick(5)
+assert(#addon.messages == messageCount)
 for index = 2, #calls do
     assert(calls[index].at - calls[index - 1].at >= 0.7)
 end
@@ -216,8 +235,10 @@ lastCall("SendBrowseQuery", "Writ:")
 local oldResults = completed
 C_AuctionHouse.SendBrowseQuery({ searchString = "Unrelated" })
 assert(not frame.shown)
+messageCount = #addon.messages
 event("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-tick()
+tick(5)
+assert(#addon.messages == messageCount)
 assert(completed == oldResults)
 
 addon:StartScan()
