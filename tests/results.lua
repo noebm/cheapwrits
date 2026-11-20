@@ -38,6 +38,12 @@ end
 UIParent, UISpecialFrames = {}, {}
 function GetTime() return 120 end
 C_Item = { GetItemInfoInstant = function() return nil end }
+C_CurrencyInfo = {
+    GetCoinTextureString = function(copper)
+        assert(copper == math.floor(copper), 'Coin formatting requires whole copper')
+        return 'coin icons: ' .. copper
+    end,
+}
 GameTooltip = widget()
 function GameTooltip:SetOwner() end
 function GameTooltip:SetItemByID(id) self.itemID = id end
@@ -68,11 +74,11 @@ buttons[2].scripts.OnLeave(buttons[2])
 assert(not GameTooltip.shown)
 local firstRow = buttons[1].parent
 assert(firstRow.itemName.text == 'Crafted Solid Shot')
-assert(firstRow.writPrice.text == '0g 0s 25c')
-assert(firstRow.itemPrice.text == '0g 0s 1c')
-assert(firstRow.totalPrice.text == '0g 4s 25c')
+assert(firstRow.writPrice.text == 'coin icons: 25')
+assert(firstRow.itemPrice.text == 'coin icons: 1')
+assert(firstRow.totalPrice.text == 'coin icons: 425')
 assert(firstRow.reputation.text == '75')
-assert(firstRow.pricePer100Rep.text == '0g 5s 66c')
+assert(firstRow.pricePer100Rep.text == 'coin icons: 566')
 
 -- An old snapshot may have no metadata and no complete price estimate.
 local old = {

@@ -11,9 +11,7 @@ local function money(copper)
         return "Unavailable"
     end
 
-    copper = math.floor(copper)
-
-    return string.format("%dg %ds %dc", math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100)
+    return C_CurrencyInfo.GetCoinTextureString(math.floor(copper))
 end
 
 local function label(parent, x, width, font)
