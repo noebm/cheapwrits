@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: WritMaxxer
 ## Notes: WritMaxxer for World of Warcraft: Forever.
-## Version: 0.1.0
+## Version: dev
 ## SavedVariables: WritMaxxerDB
 
 Prices.lua

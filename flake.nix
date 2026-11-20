@@ -4,7 +4,7 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   outputs =
-    { nixpkgs, ... }:
+    { self, nixpkgs, ... }:
     let
       systems = [
         "x86_64-linux"
@@ -19,7 +19,7 @@
           pkgs = nixpkgs.legacyPackages.${system};
           addon = pkgs.stdenvNoCC.mkDerivation {
             pname = "writ-maxxer";
-            version = "0.1.0";
+            version = self.shortRev or self.dirtyShortRev or "dev";
             src = ./WritMaxxer;
             dontBuild = true;
 
@@ -28,6 +28,8 @@
 
               mkdir -p "$out/share/wow-addons/WritMaxxer"
               cp -r ./. "$out/share/wow-addons/WritMaxxer/"
+              substituteInPlace "$out/share/wow-addons/WritMaxxer/WritMaxxer.toc" \
+                --replace-fail '## Version: dev' "## Version: $version"
 
               runHook postInstall
             '';
