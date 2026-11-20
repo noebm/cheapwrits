@@ -101,7 +101,7 @@ tick()
 assert(#calls == 0)
 ready = true
 tick()
-lastCall("SendBrowseQuery", "Writ:")
+lastCall("SendBrowseQuery", "Craftsman's Writ:")
 local query = browseQueries[#browseQueries]
 assert(query.minLevel == 0 and query.maxLevel == 0, "Browse must use unrestricted level bounds")
 assert(#query.sorts == 2, "Browse must send explicit sort orders")
@@ -220,7 +220,7 @@ end
 -- No full-scan cooldown. A dropped request is retried after readiness.
 addon:StartScan()
 tick()
-lastCall("SendBrowseQuery", "Writ:")
+lastCall("SendBrowseQuery", "Craftsman's Writ:")
 event("AUCTION_HOUSE_THROTTLED_MESSAGE_DROPPED")
 callCount = #calls
 ready = false
@@ -229,7 +229,7 @@ assert(#calls == callCount)
 ready = true
 tick()
 assert(#calls == callCount + 1)
-lastCall("SendBrowseQuery", "Writ:")
+lastCall("SendBrowseQuery", "Craftsman's Writ:")
 
 -- External searches cancel; old results survive and late replies are ignored.
 local oldResults = completed
