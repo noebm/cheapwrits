@@ -44,6 +44,7 @@ local function setup(saved)
         SendBrowseQuery = function() error("Snapshot scan must not browse") end,
         SendSearchQuery = function() error("Snapshot scan must not search individual items") end,
     }
+    assert(loadfile("WritMaxxer/WritReputation.lua"))("WritMaxxer", addon)
     assert(loadfile("WritMaxxer/Prices.lua"))("WritMaxxer", addon)
     assert(loadfile("WritMaxxer/Auction.lua"))("WritMaxxer", addon)
 end
@@ -106,8 +107,9 @@ event("REPLICATE_ITEM_LIST_UPDATE")
 event("REPLICATE_ITEM_LIST_UPDATE") -- Duplicate notifications must not double count.
 finish()
 assert(requests == 1 and #shown == 3)
-assert(shown[1].itemName == "Copper Rod" and shown[1].total == 380)
-assert(shown[2].itemName == "Crafted Solid Shot" and shown[2].total == 425)
+assert(shown[1].itemName == "Crafted Solid Shot" and shown[1].total == 425)
+assert(shown[1].reputation == 75 and shown[1].costPer100Rep == 425 * 100 / 75)
+assert(shown[2].itemName == "Copper Rod" and shown[2].total == 380)
 assert(shown[3].total == nil)
 assert(addon.scannedAt == 0)
 assert(WritMaxxerDB.snapshot.requestedAt == 100000)
@@ -126,7 +128,8 @@ serverTime = 100120
 local lastRequest = WritMaxxerDB.lastSnapshotRequestAt
 addon:ReplayScan()
 assert(requests == 0 and reads == 0 and #shown == 3)
-assert(shown[1].total == 380 and shown[2].total == 425)
+assert(shown[1].total == 425 and shown[2].total == 380)
+assert(shown[1].reputation == 75 and shown[1].costPer100Rep == 425 * 100 / 75)
 assert(addon.scannedAt == -120, "Replay must preserve the snapshot's original age")
 assert(WritMaxxerDB.lastSnapshotRequestAt == lastRequest)
 local calculate = addon.Prices.BuildRows

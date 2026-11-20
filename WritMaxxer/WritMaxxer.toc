@@ -4,6 +4,7 @@
 ## Version: dev
 ## SavedVariables: WritMaxxerDB
 
+WritReputation.lua
 Prices.lua
 Results.lua
 Auction.lua

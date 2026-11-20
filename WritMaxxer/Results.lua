@@ -7,6 +7,8 @@ local function money(copper)
         return "Unavailable"
     end
 
+    copper = math.ceil(copper)
+
     return string.format("%dg %ds %dc", math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100)
 end
 
@@ -51,8 +53,9 @@ function addon:ShowResults(rows)
 
     local age = math.floor((GetTime() - self.scannedAt) / 60)
     local lines = {
-        "Snapshot requested: " .. age .. " minutes ago. Sorted by estimated combined buyout cost.",
-        "Stack prices are prorated per unit. Unavailable means missing buyout or insufficient stock.",
+        "Snapshot requested: " .. age .. " minutes ago. Sorted by estimated cost per 100 reputation.",
+        "Stack prices are prorated per unit. Costs include the writ and required items.",
+        "Base reputation before bonuses. Unknown rewards and unavailable costs sort last.",
         "",
     }
 
@@ -62,6 +65,7 @@ function addon:ShowResults(rows)
 
     for index, row in ipairs(rows) do
         lines[#lines + 1] = index .. ". " .. row.writName .. " — requires " .. row.quantity .. " x " .. row.itemName
+        lines[#lines + 1] = "Rep: " .. (row.reputation or "Unknown") .. "   Turn-ins available: " .. row.availableTurnIns .. "   Per 100 rep: " .. money(row.costPer100Rep)
         lines[#lines + 1] = "Writ: " .. money(row.writCost) .. "   Items: " .. money(row.itemCost) .. "   Total: " .. money(row.total)
         lines[#lines + 1] = ""
     end

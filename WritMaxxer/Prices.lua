@@ -43,8 +43,23 @@ local function quantityCost(listings, quantity)
     return nil
 end
 
+local function compareRows(a, b)
+    if a.costPer100Rep ~= b.costPer100Rep then
+        if not a.costPer100Rep then return false end
+        if not b.costPer100Rep then return true end
+
+        return a.costPer100Rep < b.costPer100Rep
+    end
+
+    if a.availableTurnIns ~= b.availableTurnIns then
+        return a.availableTurnIns > b.availableTurnIns
+    end
+
+    return a.writName < b.writName
+end
+
 function Prices.BuildRows(listings)
-    local byName, writs = {}, {}
+    local byName, writs, stock = {}, {}, {}
     for _, listing in ipairs(listings) do
         local name = listing.name
         if name and listing.quantity and listing.quantity > 0 then
@@ -56,6 +71,7 @@ function Prices.BuildRows(listings)
             if listing.buyout and listing.buyout > 0 then
                 byName[name] = byName[name] or {}
                 table.insert(byName[name], listing)
+                stock[name] = (stock[name] or 0) + listing.quantity
             end
         end
     end
@@ -65,26 +81,23 @@ function Prices.BuildRows(listings)
         local quantity = requiredQuantities[itemName] or 1
         local writCost = quantityCost(byName[writName], 1)
         local itemCost = quantityCost(byName[itemName], quantity)
+        local total = writCost and itemCost and (writCost + itemCost) or nil
+        local reputation = addon.WritReputation[itemName]
+
         rows[#rows + 1] = {
             writName = writName,
             itemName = itemName,
             quantity = quantity,
+            availableTurnIns = math.min(stock[writName] or 0, math.floor((stock[itemName] or 0) / quantity)),
             writCost = writCost,
             itemCost = itemCost,
-            total = writCost and itemCost and (writCost + itemCost) or nil,
+            total = total,
+            reputation = reputation,
+            costPer100Rep = total and reputation and (total * 100 / reputation) or nil,
         }
     end
 
-    table.sort(rows, function(a, b)
-        if a.total ~= b.total then
-            if not a.total then return false end
-            if not b.total then return true end
-
-            return a.total < b.total
-        end
-
-        return a.writName < b.writName
-    end)
+    table.sort(rows, compareRows)
 
     return rows
 end
