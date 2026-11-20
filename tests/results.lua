@@ -72,7 +72,7 @@ assert(firstRow.writPrice.text == '0g 0s 25c')
 assert(firstRow.itemPrice.text == '0g 0s 1c')
 assert(firstRow.totalPrice.text == '0g 4s 25c')
 assert(firstRow.reputation.text == '75')
-assert(firstRow.goldPer100Rep.text == '0.056667g')
+assert(firstRow.pricePer100Rep.text == '0g 5s 66c')
 
 -- An old snapshot may have no metadata and no complete price estimate.
 local old = {
@@ -85,7 +85,7 @@ assert(buttons[1].count.text == '1' and buttons[2].count.text == '0')
 assert(buttons[2].icon.texture == 'Interface\\Icons\\INV_Misc_QuestionMark')
 assert(firstRow.itemName.text == 'Unknown item')
 assert(firstRow.totalPrice.text == 'Unavailable')
-assert(firstRow.itemPrice.text == 'Unavailable' and firstRow.goldPer100Rep.text == 'Unavailable')
+assert(firstRow.itemPrice.text == 'Unavailable' and firstRow.pricePer100Rep.text == 'Unavailable')
 buttons[2].scripts.OnEnter(buttons[2])
 assert(GameTooltip.text == 'Unknown item')
 local frameCount = #frames

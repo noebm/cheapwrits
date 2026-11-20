@@ -11,7 +11,7 @@ local function money(copper)
         return "Unavailable"
     end
 
-    copper = math.ceil(copper)
+    copper = math.floor(copper)
 
     return string.format("%dg %ds %dc", math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100)
 end
@@ -76,7 +76,7 @@ local function createRow(index)
     row.itemPrice = label(row, 504, 140)
     row.totalPrice = label(row, 664, 140)
     row.reputation = label(row, 840, 64)
-    row.goldPer100Rep = label(row, 924, 148)
+    row.pricePer100Rep = label(row, 924, 148)
     return row
 end
 
@@ -101,7 +101,7 @@ local function createWindow()
     note:SetPoint("TOPLEFT", 16, -56)
     note:SetWidth(contentWidth)
     note:SetJustifyH("LEFT")
-    note:SetText("Counts: buyout stock. Unit prices: prorated estimates. Gold/100 rep: full turn-in cost, base rep.")
+    note:SetText("Counts: buyout stock. Unit prices: prorated estimates. Price/100 rep: full turn-in cost, base rep.")
 
     local header = CreateFrame("Frame", nil, window)
     header:SetSize(contentWidth, 24)
@@ -111,7 +111,7 @@ local function createWindow()
         { 248, 40, "Writ" }, { 296, 140, "Unit price" },
         { 456, 40, "Item" }, { 504, 140, "Unit price" },
         { 664, 140, "Total (pair)" }, { 840, 64, "Rep" },
-        { 924, 148, "Gold / 100 rep" },
+        { 924, 148, "Price / 100 rep" },
     }) do
         label(header, column[1], column[2], "GameFontNormalSmall"):SetText(column[3])
     end
@@ -140,7 +140,7 @@ function addon:ShowResults(rows)
     end
 
     local age = math.floor((GetTime() - self.scannedAt) / 60)
-    status:SetText("Snapshot: " .. age .. " minutes old. Sorted by gold/100 rep, then availability. Hover icons for details.")
+    status:SetText("Snapshot: " .. age .. " minutes old. Sorted by price/100 rep, then availability. Hover icons for details.")
     for index, row in ipairs(rows) do
         local frame = rowFrames[index] or createRow(index)
         rowFrames[index] = frame
@@ -151,7 +151,7 @@ function addon:ShowResults(rows)
         frame.itemPrice:SetText(money(row.itemUnitCost))
         frame.totalPrice:SetText(money(row.total))
         frame.reputation:SetText(row.reputation or "Unknown")
-        frame.goldPer100Rep:SetText(row.costPer100Rep and string.format("%.6fg", row.costPer100Rep / 10000) or "Unavailable")
+        frame.pricePer100Rep:SetText(money(row.costPer100Rep))
         frame:Show()
     end
 
