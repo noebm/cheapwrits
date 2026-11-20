@@ -4,10 +4,20 @@ function addon:Print(message)
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99WritMaxxer|r: " .. message)
 end
 
-local function handleSlashCommand()
+local function handleSlashCommand(message)
+    local command = (message or ""):match("^%s*(.-)%s*$"):lower()
+    if command == "scan" then
+        addon:StartScan()
+        return
+    elseif command == "results" then
+        addon:ShowResults()
+        return
+    end
+
     local version = C_AddOns.GetAddOnMetadata(addonName, "Version")
 
     addon:Print("Loaded. Version " .. version .. ".")
+    addon:Print("Commands: /wm scan, /wm results.")
 end
 
 local frame = CreateFrame("Frame")

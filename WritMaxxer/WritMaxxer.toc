@@ -3,4 +3,7 @@
 ## Notes: WritMaxxer for World of Warcraft: Forever.
 ## Version: 0.1.0
 
+Prices.lua
+Results.lua
+Auction.lua
 Core.lua
