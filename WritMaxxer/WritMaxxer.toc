@@ -2,6 +2,7 @@
 ## Title: WritMaxxer
 ## Notes: WritMaxxer for World of Warcraft: Forever.
 ## Version: 0.1.0
+## SavedVariables: WritMaxxerDB
 
 Prices.lua
 Results.lua

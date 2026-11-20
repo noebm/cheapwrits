@@ -1,317 +1,261 @@
-local addon = { messages = {} }
-function addon:Print(message)
-    self.messages[#self.messages + 1] = message
+local addon, frame, snapshot, requests, shown, now, serverTime, hooks, reads, requestedItems
+local failRequest
+
+local function setup(saved)
+    addon = { messages = {} }
+    function addon:Print(message) self.messages[#self.messages + 1] = message end
+    function addon:ShowResults(rows) shown = rows end
+
+    snapshot, requests, shown, now, serverTime = {}, 0, nil, 0, 100000
+    hooks, reads, requestedItems, failRequest = {}, 0, {}, false
+    WritMaxxerDB = saved or {}
+    function GetTime() return now end
+    function GetServerTime() return serverTime end
+    function GetLocale() return "enUS" end
+    function debugprofilestop() return 0 end
+    function CreateFrame()
+        frame = { scripts = {}, events = {} }
+        function frame:RegisterEvent(event) self.events[event] = true end
+        function frame:SetScript(event, handler) self.scripts[event] = handler end
+        function frame:Show() self.shown = true end
+        function frame:Hide() self.shown = false end
+        return frame
+    end
+    function hooksecurefunc(target, method, callback) hooks[method] = callback end
+
+    C_Item = { RequestLoadItemDataByID = function(id) requestedItems[id] = (requestedItems[id] or 0) + 1 end }
+    C_AuctionHouse = {
+        ReplicateItems = function()
+            if failRequest then error("request failed") end
+
+            requests = requests + 1
+            if hooks.ReplicateItems then hooks.ReplicateItems() end
+        end,
+        GetNumReplicateItems = function() return #snapshot end,
+        GetReplicateItemInfo = function(index)
+            reads = reads + 1
+            local row = assert(snapshot[index + 1], "Snapshot indices are zero-based")
+            -- Match the live API tuple, including distracting bid/owner fields.
+            return row.name, 123, row.quantity, 1, true, 1, nil,
+                1, 2, row.buyout, 3, "Bidder", "Bidder-Realm", "Owner", "Owner-Realm",
+                row.sold and 1 or 0, row.itemID or index, false
+        end,
+        GetReplicateItemLink = function(index) return snapshot[index + 1].link end,
+        SendBrowseQuery = function() error("Snapshot scan must not browse") end,
+        SendSearchQuery = function() error("Snapshot scan must not search individual items") end,
+    }
+    assert(loadfile("WritMaxxer/Prices.lua"))("WritMaxxer", addon)
+    assert(loadfile("WritMaxxer/Auction.lua"))("WritMaxxer", addon)
 end
 
-local now, ready, locale = 0, true, "enUS"
-local frame, completed
-local calls, infos, browse = {}, {}, {}
-local itemResults, commodityResults = {}, {}
-local fullBrowse, fullItems, fullCommodities = true, true, true
-local hooks, requestedItems = {}, {}
-local browseQueries = {}
-
-Enum = { AuctionHouseSortOrder = { Name = 0, Price = 1 } }
-AUCTION_HOUSE_DEFAULT_FILTERS = { [10] = true, [11] = true, [12] = false }
-
-function GetTime() return now end
-function GetLocale() return locale end
-function CreateFrame()
-    frame = { scripts = {} }
-    function frame:RegisterEvent() end
-    function frame:SetScript(event, handler) self.scripts[event] = handler end
-    function frame:Show() self.shown = true end
-    function frame:Hide() self.shown = false end
-    return frame
+local function listing(name, quantity, buyout)
+    return { name = name, quantity = quantity, buyout = buyout }
 end
 
-function hooksecurefunc(target, method, callback)
-    hooks[method] = callback
-end
-
-local function record(method, argument)
-    calls[#calls + 1] = { method = method, argument = argument, at = now }
-    if hooks[method] then hooks[method]() end
-end
-
-C_Item = { RequestLoadItemDataByID = function(itemID) requestedItems[itemID] = true end }
-C_AuctionHouse = {
-    -- Any accidental full scan fails this test immediately.
-    ReplicateItems = function() error("Full AH scans are forbidden") end,
-    IsThrottledMessageSystemReady = function() return ready end,
-    SendBrowseQuery = function(query)
-        browseQueries[#browseQueries + 1] = query
-        record("SendBrowseQuery", query.searchString)
-    end,
-    RequestMoreBrowseResults = function() record("RequestMoreBrowseResults") end,
-    GetBrowseResults = function() return browse end,
-    HasFullBrowseResults = function() return fullBrowse end,
-    GetItemKeyInfo = function(itemKey) return infos[itemKey.itemID] end,
-    SendSearchQuery = function(itemKey) record("SendSearchQuery", itemKey.itemID) end,
-    RequestMoreItemSearchResults = function(itemKey) record("RequestMoreItemSearchResults", itemKey.itemID) end,
-    RequestMoreCommoditySearchResults = function(id) record("RequestMoreCommoditySearchResults", id) end,
-    HasFullItemSearchResults = function() return fullItems end,
-    HasFullCommoditySearchResults = function() return fullCommodities end,
-    GetNumItemSearchResults = function() return #itemResults end,
-    GetNumCommoditySearchResults = function() return #commodityResults end,
-    GetItemSearchResultInfo = function(_, index) return itemResults[index] end,
-    GetCommoditySearchResultInfo = function(_, index) return commodityResults[index] end,
-}
-
-function addon:ShowResults(rows) completed = rows end
-assert(loadfile("WritMaxxer/Prices.lua"))("WritMaxxer", addon)
-assert(loadfile("WritMaxxer/Auction.lua"))("WritMaxxer", addon)
-
-local function key(id, suffix)
-    return { itemID = id, itemLevel = 0, itemSuffix = suffix or 0, battlePetSpeciesID = 0 }
-end
-
-local function register(id, name, commodity)
-    infos[id] = { itemName = name, isCommodity = commodity or false }
-    return { itemKey = key(id), totalQuantity = 1, minPrice = 1 }
-end
-
-local function event(name, argument) frame.scripts.OnEvent(frame, name, argument) end
+local function event(name) frame.scripts.OnEvent(frame, name) end
 local function tick(seconds)
-    now = now + (seconds or 1)
+    seconds = seconds or 0.1
+    now, serverTime = now + seconds, serverTime + seconds
     if frame.shown then frame.scripts.OnUpdate(frame) end
 end
 
-local function lastCall(method, argument)
-    local call = calls[#calls]
-    assert(call and call.method == method, "Expected " .. method)
-    assert(call.argument == argument, tostring(call.argument) .. " ~= " .. tostring(argument))
+local function finish()
+    for _ = 1, 100 do
+        if not frame.shown then return end
+        tick()
+    end
+    error("Scan did not finish")
 end
 
-local writ = register(10, "Craftsman's Writ: Copper Rod")
-local shotWrit = register(20, "Craftsman's Writ: Crafted Solid Shot", true)
-local rod = register(30, "Copper Rod")
-local shot = register(40, "Crafted Solid Shot", true)
-local recipe = register(50, "Recipe: Copper Rod")
-local envelope = register(60, "Sealed Journeyman's Writ")
+local function messageContains(text)
+    for _, message in ipairs(addon.messages) do
+        if message:find(text, 1, true) then return true end
+    end
+    return false
+end
 
--- Wait for the AH and throttle readiness. Ignore stale results before sending.
+setup()
 addon:StartScan()
-assert(#calls == 0)
+assert(requests == 0 and messageContains("Open the auction house"))
 event("AUCTION_HOUSE_SHOW")
-ready = false
 addon:StartScan()
-event("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-tick()
-assert(#calls == 0)
-ready = true
-tick()
-lastCall("SendBrowseQuery", "Craftsman's Writ:")
-local query = browseQueries[#browseQueries]
-assert(query.minLevel == 0 and query.maxLevel == 0, "Browse must use unrestricted level bounds")
-assert(#query.sorts == 2, "Browse must send explicit sort orders")
-assert(query.sorts[1].sortOrder == Enum.AuctionHouseSortOrder.Name and query.sorts[1].reverseSort == false)
-assert(query.sorts[2].sortOrder == Enum.AuctionHouseSortOrder.Price and query.sorts[2].reverseSort == false)
-local filters = {}
-for _, filter in ipairs(query.filters) do filters[filter] = true end
-assert(#query.filters == 2 and filters[10] and filters[11] and not filters[12])
-assert(AUCTION_HOUSE_DEFAULT_FILTERS[12] == false)
+assert(requests == 1 and frame.shown)
 addon:StartScan()
-assert(#calls == 1)
+assert(requests == 1 and messageContains("already in progress"))
+assert(reads == 0)
+tick(5)
+assert(messageContains("Waiting for auction snapshot"))
+assert(reads == 0, "Must wait for the snapshot event, not read a stale cache")
 
--- Browse every writ page before queuing searches; overlapping pages deduplicate.
-browse, fullBrowse = { writ }, false
-event("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-tick(0)
-tick(0.2)
-assert(#calls == 1) -- Readiness alone must not bypass the local rate limit.
-tick(0.5)
-lastCall("RequestMoreBrowseResults")
+snapshot = {
+    listing("Craftsman's Writ: Copper Rod", 1, 100),
+    listing("Craftsman's Writ: Copper Rod", 1, 80),
+    listing("Copper Rod", 2, 600),
+    listing("Recipe: Copper Rod", 1, 1),
+    listing("Craftsman's Writ: Crafted Solid Shot", 1, 25),
+    listing("Crafted Solid Shot", 100, 100),
+    listing("Crafted Solid Shot", 150, 450),
+    listing("Sealed Journeyman's Writ", 1, 1),
+    listing("Craftsman's Writ: Bid Only", 1, 0),
+    listing("Bid Only", 1, 10),
+}
+local sold = listing("Copper Rod", 1, 1)
+sold.sold = true
+snapshot[#snapshot + 1] = sold
+event("REPLICATE_ITEM_LIST_UPDATE")
+event("REPLICATE_ITEM_LIST_UPDATE") -- Duplicate notifications must not double count.
+finish()
+assert(requests == 1 and #shown == 3)
+assert(shown[1].itemName == "Copper Rod" and shown[1].total == 380)
+assert(shown[2].itemName == "Crafted Solid Shot" and shown[2].total == 425)
+assert(shown[3].total == nil)
+assert(addon.scannedAt == 0)
+local oldResults = shown
 local messageCount = #addon.messages
 tick(5)
-assert(#addon.messages == messageCount + 1)
-assert(addon.messages[#addon.messages]:find("Searching writ listings", 1, true))
-browse, fullBrowse = { writ, writ, shotWrit, recipe, envelope }, true
-event("AUCTION_HOUSE_BROWSE_RESULTS_ADDED")
-tick()
-assert(addon.messages[#addon.messages]:find("Found 2 writs", 1, true))
-tick()
-lastCall("SendSearchQuery", 10)
-
--- Report progress while waiting, without spamming chat or issuing more searches.
-messageCount = #addon.messages
-local requestCount = #calls
-tick(3)
 assert(#addon.messages == messageCount)
-tick(1)
-assert(#addon.messages == messageCount + 1 and #calls == requestCount)
-assert(addon.messages[#addon.messages]:find("0 checks completed", 1, true))
-assert(addon.messages[#addon.messages]:find("Craftsman's Writ: Copper Rod", 1, true))
-
--- Wrong item keys and item IDs cannot complete the current request.
-local callCount = #calls
-event("ITEM_SEARCH_RESULTS_UPDATED", key(10, 7))
-event("COMMODITY_SEARCH_RESULTS_UPDATED", 10)
-tick()
-assert(#calls == callCount and completed == nil)
-
--- Individual-item prices come from buyouts, not browse minimums or bids.
-itemResults, fullItems = { { itemKey = key(10), quantity = 1, buyoutAmount = 100 } }, false
-event("ITEM_SEARCH_RESULTS_UPDATED", key(10))
-tick()
-tick()
-lastCall("RequestMoreItemSearchResults", 10)
-itemResults, fullItems = {
-    { itemKey = key(10), quantity = 1, buyoutAmount = 100 },
-    { itemKey = key(10), quantity = 1, buyoutAmount = 80 },
-    { itemKey = key(10), quantity = 1, minBid = 1 },
-}, true
-event("ITEM_SEARCH_RESULTS_ADDED", key(10))
-tick()
-tick()
-lastCall("SendSearchQuery", 20)
-commodityResults = { { quantity = 10, unitPrice = 25 } }
-event("COMMODITY_SEARCH_RESULTS_UPDATED", 999)
-tick()
-assert(completed == nil)
-event("COMMODITY_SEARCH_RESULTS_UPDATED", 20)
-tick()
-tick()
-lastCall("SendBrowseQuery", "Copper Rod")
-
--- Resolve uncached names before filtering exact matches. Recipe is never searched.
-infos[30] = nil
-browse = { rod, rod, recipe }
-event("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-tick(5)
-assert(addon.messages[#addon.messages]:find("2 checks completed", 1, true))
-assert(requestedItems[30])
-register(30, "Copper Rod")
-tick()
-tick()
-lastCall("SendBrowseQuery", "Crafted Solid Shot")
-browse = { shot }
-event("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-tick()
-tick()
-lastCall("SendSearchQuery", 30)
-itemResults = { { itemKey = key(30), quantity = 1, buyoutAmount = 300 } }
-event("ITEM_SEARCH_RESULTS_UPDATED", key(30))
-tick()
-tick()
-lastCall("SendSearchQuery", 40)
-
--- Commodity pages are cumulative; price tiers must not be counted twice.
-commodityResults, fullCommodities = { { quantity = 100, unitPrice = 1 } }, false
-event("COMMODITY_SEARCH_RESULTS_UPDATED", 40)
-tick()
-tick()
-lastCall("RequestMoreCommoditySearchResults", 40)
-commodityResults, fullCommodities = {
-    { quantity = 100, unitPrice = 1 }, { quantity = 100, unitPrice = 3 },
-}, true
-event("COMMODITY_SEARCH_RESULTS_ADDED", 40)
-tick()
-assert(not frame.shown and #completed == 2)
-assert(completed[1].itemName == "Copper Rod" and completed[1].total == 380)
-assert(completed[2].itemName == "Crafted Solid Shot" and completed[2].total == 425)
-messageCount = #addon.messages
-tick(5)
-assert(#addon.messages == messageCount)
-for index = 2, #calls do
-    assert(calls[index].at - calls[index - 1].at >= 0.7)
-end
-
--- No full-scan cooldown. A dropped request is retried after readiness.
 addon:StartScan()
-tick()
-lastCall("SendBrowseQuery", "Craftsman's Writ:")
-event("AUCTION_HOUSE_THROTTLED_MESSAGE_DROPPED")
-callCount = #calls
-ready = false
-tick()
-assert(#calls == callCount)
-ready = true
-tick()
-assert(#calls == callCount + 1)
-lastCall("SendBrowseQuery", "Craftsman's Writ:")
+assert(requests == 1 and messageContains("cooldown") and shown == oldResults)
 
--- External searches cancel; old results survive and late replies are ignored.
-local oldResults = completed
-C_AuctionHouse.SendBrowseQuery({ searchString = "Unrelated" })
-assert(not frame.shown)
-messageCount = #addon.messages
-event("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-tick(5)
-assert(#addon.messages == messageCount)
-assert(completed == oldResults)
-
-addon:StartScan()
-tick()
-event("AUCTION_HOUSE_CLOSED")
-assert(not frame.shown and completed == oldResults)
+-- The cooldown survives reloads, and a new request is allowed once it expires.
+local saved = WritMaxxerDB
+setup(saved)
 event("AUCTION_HOUSE_SHOW")
 addon:StartScan()
-tick()
-tick(61)
-assert(not frame.shown and completed == oldResults)
-assert(addon.messages[#addon.messages]:find("timed out"))
-
+assert(requests == 0 and messageContains("cooldown"))
+tick(901)
 addon:StartScan()
-tick()
-event("AUCTION_HOUSE_BROWSE_FAILURE")
-assert(not frame.shown and completed == oldResults)
+assert(requests == 1)
+event("REPLICATE_ITEM_LIST_UPDATE")
+finish()
+assert(shown and #shown == 0)
 
--- An empty discovery replaces previous results without any detail searches.
+-- Large snapshots are processed over multiple frames, with progress updates.
+setup()
+event("AUCTION_HOUSE_SHOW")
 addon:StartScan()
-tick()
-browse = {}
-event("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-tick()
-assert(not frame.shown and #completed == 0)
+for index = 1, 2000 do snapshot[index] = listing("Unrelated Item", 1, 5) end
+snapshot[2001] = listing("Craftsman's Writ: Copper Rod", 1, 100)
+snapshot[2002] = listing("Copper Rod", 1, 300)
+event("REPLICATE_ITEM_LIST_UPDATE")
+assert(reads == 0, "Event handler must not process the full snapshot")
+tick(5)
+assert(frame.shown and reads > 0 and reads < #snapshot)
+tick(5)
+assert(messageContains("listings processed"))
+finish()
+assert(#shown == 1 and shown[1].total == 400)
 
--- Disappearing writ auctions and missing required items remain unavailable.
+-- The time budget also yields early when individual API reads are expensive.
+setup()
+event("AUCTION_HOUSE_SHOW")
 addon:StartScan()
-tick()
-browse = { writ }
-event("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-tick()
-tick()
-lastCall("SendSearchQuery", 10)
-itemResults = {}
-event("ITEM_SEARCH_RESULTS_UPDATED", key(10))
-tick()
-tick()
-lastCall("SendBrowseQuery", "Copper Rod")
-browse = {}
-event("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-tick()
-assert(not frame.shown and #completed == 1)
-assert(completed[1].writCost == nil and completed[1].itemCost == nil)
-assert(completed[1].total == nil)
-oldResults = completed
-
--- Unresolved item information fails without publishing an incomplete scan.
-addon:StartScan()
-tick()
-browse, infos[10] = { writ }, nil
-event("AUCTION_HOUSE_BROWSE_RESULTS_UPDATED")
-tick()
-tick(61)
-assert(not frame.shown and completed == oldResults)
-register(10, "Craftsman's Writ: Copper Rod")
-
--- Retrying dropped messages is bounded.
-addon:StartScan()
-tick()
-for _ = 1, 3 do
-    event("AUCTION_HOUSE_THROTTLED_MESSAGE_DROPPED")
-    tick()
-    assert(frame.shown)
+for index = 1, 100 do snapshot[index] = listing("Unrelated Item", 1, 5) end
+event("REPLICATE_ITEM_LIST_UPDATE")
+local profileTime = 0
+function debugprofilestop()
+    profileTime = profileTime + 2
+    return profileTime
 end
-event("AUCTION_HOUSE_THROTTLED_MESSAGE_DROPPED")
-assert(not frame.shown and completed == oldResults)
-
-locale = "deDE"
-callCount = #calls
-addon:StartScan()
 tick()
-assert(#calls == callCount)
-assert(addon.messages[#addon.messages]:find("English"))
+assert(frame.shown and reads == 1)
+function debugprofilestop() return 0 end
+finish()
+assert(#shown == 0)
 
-print("Targeted auction lifecycle tests passed")
+-- Resolve missing names without silently publishing incomplete prices.
+setup()
+event("AUCTION_HOUSE_SHOW")
+addon:StartScan()
+snapshot = { listing(nil, 1, 100), listing("Copper Rod", 1, 300) }
+snapshot[1].itemID = 77
+event("REPLICATE_ITEM_LIST_UPDATE")
+tick()
+assert(not shown and requestedItems[77] == 1)
+tick()
+assert(not shown and requestedItems[77] == 1)
+snapshot[1].name = "Craftsman's Writ: Copper Rod"
+finish()
+assert(#shown == 1 and shown[1].total == 400)
+
+-- Resolving a later missing name must not skip or count other pending rows twice.
+setup()
+event("AUCTION_HOUSE_SHOW")
+addon:StartScan()
+snapshot = { listing(nil, 1, 100), listing(nil, 1, 300), listing(nil, 1, 200) }
+event("REPLICATE_ITEM_LIST_UPDATE")
+tick()
+snapshot[2].name = "Copper Rod"
+tick()
+assert(not shown)
+snapshot[1].name = "Craftsman's Writ: Copper Rod"
+snapshot[3].name = "Unrelated Item"
+finish()
+assert(#shown == 1 and shown[1].total == 400)
+
+-- A link can provide the exact display name before item data is cached.
+setup()
+event("AUCTION_HOUSE_SHOW")
+addon:StartScan()
+snapshot = { listing(nil, 1, 100), listing("Copper Rod", 1, 300) }
+snapshot[1].link = "|cffffffff|Hitem:77::::::::|h[Craftsman's Writ: Copper Rod]|h|r"
+event("REPLICATE_ITEM_LIST_UPDATE")
+finish()
+assert(#shown == 1 and shown[1].total == 400)
+
+-- Closing or disabling the AH cancels; late replies do not publish results.
+for _, closeEvent in ipairs({ "AUCTION_HOUSE_CLOSED", "AUCTION_HOUSE_DISABLED" }) do
+    setup()
+    addon.results = oldResults
+    event("AUCTION_HOUSE_SHOW")
+    addon:StartScan()
+    event(closeEvent)
+    assert(not frame.shown and addon.results == oldResults)
+    event("REPLICATE_ITEM_LIST_UPDATE")
+    tick(5)
+    assert(not shown)
+end
+
+-- Timeout and unresolved names preserve previous results; no automatic retries.
+for _, received in ipairs({ false, true }) do
+    setup()
+    addon.results = oldResults
+    event("AUCTION_HOUSE_SHOW")
+    addon:StartScan()
+    if received then
+        snapshot = { listing(nil, 1, 100) }
+        event("REPLICATE_ITEM_LIST_UPDATE")
+        tick()
+    end
+    tick(121)
+    assert(not frame.shown and not shown and addon.results == oldResults)
+    assert(messageContains("timed out") and requests == 1)
+end
+
+-- Other snapshot requests consume the same cooldown and cannot replace an active scan.
+setup()
+event("AUCTION_HOUSE_SHOW")
+C_AuctionHouse.ReplicateItems()
+addon:StartScan()
+assert(requests == 1 and messageContains("cooldown"))
+tick(901)
+addon:StartScan()
+C_AuctionHouse.ReplicateItems()
+assert(not frame.shown and messageContains("another snapshot"))
+
+setup()
+event("AUCTION_HOUSE_SHOW")
+failRequest = true
+addon:StartScan()
+assert(not frame.shown and messageContains("failed"))
+failRequest = false
+addon:StartScan()
+assert(requests == 1, "A failed call must not consume the local cooldown")
+
+setup()
+function GetLocale() return "deDE" end
+event("AUCTION_HOUSE_SHOW")
+addon:StartScan()
+assert(requests == 0 and messageContains("English"))
+
+print("Snapshot auction lifecycle tests passed")

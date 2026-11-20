@@ -51,7 +51,7 @@ function addon:ShowResults(rows)
 
     local age = math.floor((GetTime() - self.scannedAt) / 60)
     local lines = {
-        "Scan started: " .. age .. " minutes ago. Sorted by estimated combined buyout cost.",
+        "Snapshot requested: " .. age .. " minutes ago. Sorted by estimated combined buyout cost.",
         "Stack prices are prorated per unit. Unavailable means missing buyout or insufficient stock.",
         "",
     }
