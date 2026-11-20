@@ -114,6 +114,9 @@ assert(shown[3].total == nil)
 assert(addon.scannedAt == 0)
 assert(WritMaxxerDB.snapshot.requestedAt == 100000)
 assert(#WritMaxxerDB.snapshot.listings == 10)
+assert(WritMaxxerDB.snapshot.listings[1].icon == 123)
+assert(WritMaxxerDB.snapshot.listings[2].itemID == 1)
+assert(shown[1].writIcon == 123 and shown[1].itemIcon == 123)
 local oldResults = shown
 local messageCount = #addon.messages
 tick(5)
@@ -130,6 +133,7 @@ addon:ReplayScan()
 assert(requests == 0 and reads == 0 and #shown == 3)
 assert(shown[1].total == 425 and shown[2].total == 380)
 assert(shown[1].reputation == 75 and shown[1].costPer100Rep == 425 * 100 / 75)
+assert(shown[1].writIcon == 123 and shown[1].itemIcon == 123)
 assert(addon.scannedAt == -120, "Replay must preserve the snapshot's original age")
 assert(WritMaxxerDB.lastSnapshotRequestAt == lastRequest)
 local calculate = addon.Prices.BuildRows

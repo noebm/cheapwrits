@@ -148,4 +148,34 @@ rows = addon.Prices.BuildRows({
 equal(rows[1].itemName, "Crafted Solid Shot")
 equal(rows[2].itemName, "Elixir of Wisdom")
 
+-- Rows expose stock, item identity, and unit prices for the compact view.
+local writ = listing("Craftsman's Writ: Crafted Solid Shot", 3, 75)
+writ.itemID, writ.icon = 264037, 134939
+local ammo = listing("Crafted Solid Shot", 100, 100)
+ammo.itemID, ammo.icon = 8069, 132384
+rows = addon.Prices.BuildRows({
+    writ, ammo,
+    listing("Crafted Solid Shot", 150, 450),
+    listing("Crafted Solid Shot", 100, 0),
+})
+equal(rows[1].writStock, 3)
+equal(rows[1].itemStock, 250)
+equal(rows[1].writItemID, 264037)
+equal(rows[1].itemID, 8069)
+equal(rows[1].writIcon, 134939)
+equal(rows[1].itemIcon, 132384)
+equal(rows[1].itemUnitCost, 1)
+equal(rows[1].itemCost, 400)
+equal(rows[1].costPerRep, 425 / 75)
+
+-- Old snapshots remain usable without icon metadata; stock shortages still
+-- allow a unit price but cannot produce a complete turn-in estimate.
+rows = addon.Prices.BuildRows({
+    listing("Craftsman's Writ: Crafted Solid Shot", 1, 25),
+    listing("Crafted Solid Shot", 199, 199),
+})
+equal(rows[1].itemUnitCost, 1)
+equal(rows[1].costPerRep, nil)
+equal(rows[1].itemIcon, nil)
+
 print("Price tests passed")

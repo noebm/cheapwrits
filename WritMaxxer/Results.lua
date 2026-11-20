@@ -1,6 +1,10 @@
 local _, addon = ...
 
-local window, content, text, scroll
+local window, content, scroll, status, empty
+local rowFrames = {}
+local rowHeight = 44
+local contentWidth = 680
+local unknownIcon = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local function money(copper)
     if not copper then
@@ -10,6 +14,68 @@ local function money(copper)
     copper = math.ceil(copper)
 
     return string.format("%dg %ds %dc", math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100)
+end
+
+local function label(parent, x, width, font)
+    local text = parent:CreateFontString(nil, "OVERLAY", font or "GameFontHighlightSmall")
+    text:SetPoint("LEFT", parent, "LEFT", x, 0)
+    text:SetWidth(width)
+    text:SetJustifyH("LEFT")
+    return text
+end
+
+local function createIcon(parent, x)
+    local button = CreateFrame("Button", nil, parent)
+    button:SetSize(32, 32)
+    button:SetPoint("LEFT", parent, "LEFT", x, 0)
+    button.icon = button:CreateTexture(nil, "ARTWORK")
+    button.icon:SetAllPoints()
+    button.count = button:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+    button.count:SetPoint("BOTTOMRIGHT", -1, 1)
+    button:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        if self.itemID then
+            GameTooltip:SetItemByID(self.itemID)
+        else
+            GameTooltip:SetText(self.itemName)
+        end
+
+        GameTooltip:AddLine("Required per turn-in: " .. self.required .. " | Available: " .. self.stock, 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    return button
+end
+
+local function updateIcon(button, name, itemID, icon, stock, required)
+    if not icon then
+        local resolvedID, _, _, _, resolvedIcon = C_Item.GetItemInfoInstant(itemID or name)
+        itemID, icon = itemID or resolvedID, resolvedIcon
+    end
+
+    button.itemName, button.itemID = name, itemID
+    button.stock, button.required = stock, required
+    button.icon:SetTexture(icon or unknownIcon)
+    button.count:SetText(stock)
+end
+
+local function createRow(index)
+    local row = CreateFrame("Frame", nil, content)
+    row:SetSize(contentWidth, rowHeight)
+    row:SetPoint("TOPLEFT", 0, -(index - 1) * rowHeight)
+    if index % 2 == 0 then
+        local background = row:CreateTexture(nil, "BACKGROUND")
+        background:SetAllPoints()
+        background:SetColorTexture(1, 1, 1, 0.04)
+    end
+
+    row.writ = createIcon(row, 8)
+    row.writPrice = label(row, 56, 140)
+    row.item = createIcon(row, 216)
+    row.itemPrice = label(row, 264, 140)
+    row.reputation = label(row, 440, 64)
+    row.goldPerRep = label(row, 524, 148)
+    return row
 end
 
 local function createWindow()
@@ -25,19 +91,37 @@ local function createWindow()
     window:SetScript("OnDragStop", window.StopMovingOrSizing)
     table.insert(UISpecialFrames, "WritMaxxerResults")
 
-    scroll = CreateFrame("ScrollFrame", nil, window, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 16, -36)
-    scroll:SetPoint("BOTTOMRIGHT", -32, 16)
+    status = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    status:SetPoint("TOPLEFT", 16, -36)
+    status:SetWidth(contentWidth)
+    status:SetJustifyH("LEFT")
+    local note = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    note:SetPoint("TOPLEFT", 16, -56)
+    note:SetWidth(contentWidth)
+    note:SetJustifyH("LEFT")
+    note:SetText("Counts: buyout stock. Unit prices: prorated estimates. Gold/rep: full turn-in cost, base rep.")
 
+    local header = CreateFrame("Frame", nil, window)
+    header:SetSize(contentWidth, 24)
+    header:SetPoint("TOPLEFT", 16, -80)
+    for _, column in ipairs({
+        { 8, 40, "Writ" }, { 56, 140, "Unit price" },
+        { 216, 40, "Item" }, { 264, 140, "Unit price" },
+        { 440, 64, "Rep" }, { 524, 148, "Gold / rep" },
+    }) do
+        label(header, column[1], column[2], "GameFontNormalSmall"):SetText(column[3])
+    end
+
+    scroll = CreateFrame("ScrollFrame", nil, window, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 16, -108)
+    scroll:SetPoint("BOTTOMRIGHT", -32, 16)
     content = CreateFrame("Frame", nil, scroll)
-    content:SetSize(680, 1)
+    content:SetSize(contentWidth, 1)
     scroll:SetScrollChild(content)
 
-    text = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    text:SetPoint("TOPLEFT")
-    text:SetWidth(680)
-    text:SetJustifyH("LEFT")
-    text:SetSpacing(3)
+    empty = content:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    empty:SetPoint("TOPLEFT", 8, -12)
+    empty:SetText("No Craftsman's Writ listings found in this scan.")
 end
 
 function addon:ShowResults(rows)
@@ -52,26 +136,25 @@ function addon:ShowResults(rows)
     end
 
     local age = math.floor((GetTime() - self.scannedAt) / 60)
-    local lines = {
-        "Snapshot requested: " .. age .. " minutes ago. Sorted by estimated cost per 100 reputation.",
-        "Stack prices are prorated per unit. Costs include the writ and required items.",
-        "Base reputation before bonuses. Unknown rewards and unavailable costs sort last.",
-        "",
-    }
-
-    if #rows == 0 then
-        lines[#lines + 1] = "No Craftsman's Writ listings found in this scan."
-    end
-
+    status:SetText("Snapshot: " .. age .. " minutes old. Sorted by gold/rep, then availability. Hover icons for details.")
     for index, row in ipairs(rows) do
-        lines[#lines + 1] = index .. ". " .. row.writName .. " — requires " .. row.quantity .. " x " .. row.itemName
-        lines[#lines + 1] = "Rep: " .. (row.reputation or "Unknown") .. "   Turn-ins available: " .. row.availableTurnIns .. "   Per 100 rep: " .. money(row.costPer100Rep)
-        lines[#lines + 1] = "Writ: " .. money(row.writCost) .. "   Items: " .. money(row.itemCost) .. "   Total: " .. money(row.total)
-        lines[#lines + 1] = ""
+        local frame = rowFrames[index] or createRow(index)
+        rowFrames[index] = frame
+        updateIcon(frame.writ, row.writName, row.writItemID, row.writIcon, row.writStock, 1)
+        updateIcon(frame.item, row.itemName, row.itemID, row.itemIcon, row.itemStock, row.quantity)
+        frame.writPrice:SetText(money(row.writCost))
+        frame.itemPrice:SetText(money(row.itemUnitCost))
+        frame.reputation:SetText(row.reputation or "Unknown")
+        frame.goldPerRep:SetText(row.costPerRep and string.format("%.6fg", row.costPerRep / 10000) or "Unavailable")
+        frame:Show()
     end
 
-    text:SetText(table.concat(lines, "\n"))
-    content:SetHeight(math.max(1, text:GetStringHeight() + 16))
+    for index = #rows + 1, #rowFrames do
+        rowFrames[index]:Hide()
+    end
+
+    if #rows == 0 then empty:Show() else empty:Hide() end
+    content:SetHeight(math.max(rowHeight, #rows * rowHeight))
     scroll:SetVerticalScroll(0)
     window:Show()
 end

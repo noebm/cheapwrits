@@ -108,7 +108,7 @@ function addon:ReplayScan()
 end
 
 local function readListing(index)
-    local name, _, quantity, _, _, _, _, _, _, buyout, _, _, _, _, _, saleStatus, itemID = AH.GetReplicateItemInfo(index)
+    local name, icon, quantity, _, _, _, _, _, _, buyout, _, _, _, _, _, saleStatus, itemID = AH.GetReplicateItemInfo(index)
     if saleStatus ~= 0 or not quantity or quantity <= 0 then
         return true
     end
@@ -127,7 +127,10 @@ local function readListing(index)
         return false
     end
 
-    scan.listings[#scan.listings + 1] = { name = name, quantity = quantity, buyout = buyout }
+    scan.listings[#scan.listings + 1] = {
+        name = name, quantity = quantity, buyout = buyout,
+        itemID = itemID, icon = icon,
+    }
     return true
 end
 

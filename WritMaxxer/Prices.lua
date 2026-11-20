@@ -59,10 +59,14 @@ local function compareRows(a, b)
 end
 
 function Prices.BuildRows(listings)
-    local byName, writs, stock = {}, {}, {}
+    local byName, writs, stock, metadata = {}, {}, {}, {}
     for _, listing in ipairs(listings) do
         local name = listing.name
         if name and listing.quantity and listing.quantity > 0 then
+            metadata[name] = metadata[name] or {}
+            metadata[name].itemID = metadata[name].itemID or listing.itemID
+            metadata[name].icon = metadata[name].icon or listing.icon
+
             local itemName = Prices.GetRequiredItemName(name)
             if itemName then
                 writs[name] = itemName
@@ -83,11 +87,20 @@ function Prices.BuildRows(listings)
         local itemCost = quantityCost(byName[itemName], quantity)
         local total = writCost and itemCost and (writCost + itemCost) or nil
         local reputation = addon.WritReputation[itemName]
+        local writInfo, itemInfo = metadata[writName] or {}, metadata[itemName] or {}
 
         rows[#rows + 1] = {
             writName = writName,
             itemName = itemName,
             quantity = quantity,
+            writStock = stock[writName] or 0,
+            itemStock = stock[itemName] or 0,
+            writItemID = writInfo.itemID,
+            itemID = itemInfo.itemID,
+            writIcon = writInfo.icon,
+            itemIcon = itemInfo.icon,
+            itemUnitCost = quantityCost(byName[itemName], 1),
+            costPerRep = total and reputation and (total / reputation) or nil,
             availableTurnIns = math.min(stock[writName] or 0, math.floor((stock[itemName] or 0) / quantity)),
             writCost = writCost,
             itemCost = itemCost,
