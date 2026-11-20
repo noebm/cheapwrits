@@ -3,7 +3,7 @@ local _, addon = ...
 local window, content, scroll, status, empty
 local rowFrames = {}
 local rowHeight = 44
-local contentWidth = 840
+local contentWidth = 1080
 local unknownIcon = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local function money(copper)
@@ -69,19 +69,20 @@ local function createRow(index)
         background:SetColorTexture(1, 1, 1, 0.04)
     end
 
-    row.writ = createIcon(row, 8)
-    row.writPrice = label(row, 56, 140)
-    row.item = createIcon(row, 216)
-    row.itemPrice = label(row, 264, 140)
-    row.totalPrice = label(row, 424, 140)
-    row.reputation = label(row, 600, 64)
-    row.goldPer100Rep = label(row, 684, 148)
+    row.itemName = label(row, 8, 224)
+    row.writ = createIcon(row, 248)
+    row.writPrice = label(row, 296, 140)
+    row.item = createIcon(row, 456)
+    row.itemPrice = label(row, 504, 140)
+    row.totalPrice = label(row, 664, 140)
+    row.reputation = label(row, 840, 64)
+    row.goldPer100Rep = label(row, 924, 148)
     return row
 end
 
 local function createWindow()
     window = CreateFrame("Frame", "WritMaxxerResults", UIParent, "BasicFrameTemplateWithInset")
-    window:SetSize(900, 520)
+    window:SetSize(1140, 520)
     window:SetPoint("CENTER")
     window:SetFrameStrata("DIALOG")
     window.TitleText:SetText("WritMaxxer — Auction prices")
@@ -106,10 +107,11 @@ local function createWindow()
     header:SetSize(contentWidth, 24)
     header:SetPoint("TOPLEFT", 16, -80)
     for _, column in ipairs({
-        { 8, 40, "Writ" }, { 56, 140, "Unit price" },
-        { 216, 40, "Item" }, { 264, 140, "Unit price" },
-        { 424, 140, "Total (pair)" }, { 600, 64, "Rep" },
-        { 684, 148, "Gold / 100 rep" },
+        { 8, 224, "Item name" },
+        { 248, 40, "Writ" }, { 296, 140, "Unit price" },
+        { 456, 40, "Item" }, { 504, 140, "Unit price" },
+        { 664, 140, "Total (pair)" }, { 840, 64, "Rep" },
+        { 924, 148, "Gold / 100 rep" },
     }) do
         label(header, column[1], column[2], "GameFontNormalSmall"):SetText(column[3])
     end
@@ -142,6 +144,7 @@ function addon:ShowResults(rows)
     for index, row in ipairs(rows) do
         local frame = rowFrames[index] or createRow(index)
         rowFrames[index] = frame
+        frame.itemName:SetText(row.itemName)
         updateIcon(frame.writ, row.writName, row.writItemID, row.writIcon, row.writStock, 1)
         updateIcon(frame.item, row.itemName, row.itemID, row.itemIcon, row.itemStock, row.quantity)
         frame.writPrice:SetText(money(row.writCost))
