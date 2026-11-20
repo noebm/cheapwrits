@@ -110,6 +110,8 @@ assert(shown[1].itemName == "Copper Rod" and shown[1].total == 380)
 assert(shown[2].itemName == "Crafted Solid Shot" and shown[2].total == 425)
 assert(shown[3].total == nil)
 assert(addon.scannedAt == 0)
+assert(WritMaxxerDB.snapshot.requestedAt == 100000)
+assert(#WritMaxxerDB.snapshot.listings == 10)
 local oldResults = shown
 local messageCount = #addon.messages
 tick(5)
@@ -120,6 +122,21 @@ assert(requests == 1 and messageContains("cooldown") and shown == oldResults)
 -- The cooldown survives reloads, and a new request is allowed once it expires.
 local saved = WritMaxxerDB
 setup(saved)
+serverTime = 100120
+local lastRequest = WritMaxxerDB.lastSnapshotRequestAt
+addon:ReplayScan()
+assert(requests == 0 and reads == 0 and #shown == 3)
+assert(shown[1].total == 380 and shown[2].total == 425)
+assert(addon.scannedAt == -120, "Replay must preserve the snapshot's original age")
+assert(WritMaxxerDB.lastSnapshotRequestAt == lastRequest)
+local calculate = addon.Prices.BuildRows
+local recalculated = false
+addon.Prices.BuildRows = function(listings)
+    recalculated = true
+    return calculate(listings)
+end
+addon:ReplayScan()
+assert(recalculated and requests == 0 and reads == 0)
 event("AUCTION_HOUSE_SHOW")
 addon:StartScan()
 assert(requests == 0 and messageContains("cooldown"))
@@ -206,11 +223,13 @@ assert(#shown == 1 and shown[1].total == 400)
 -- Closing or disabling the AH cancels; late replies do not publish results.
 for _, closeEvent in ipairs({ "AUCTION_HOUSE_CLOSED", "AUCTION_HOUSE_DISABLED" }) do
     setup()
+    WritMaxxerDB.snapshot = saved.snapshot
     addon.results = oldResults
     event("AUCTION_HOUSE_SHOW")
     addon:StartScan()
     event(closeEvent)
     assert(not frame.shown and addon.results == oldResults)
+    assert(WritMaxxerDB.snapshot == saved.snapshot)
     event("REPLICATE_ITEM_LIST_UPDATE")
     tick(5)
     assert(not shown)
@@ -251,6 +270,14 @@ assert(not frame.shown and messageContains("failed"))
 failRequest = false
 addon:StartScan()
 assert(requests == 1, "A failed call must not consume the local cooldown")
+
+setup()
+addon:ReplayScan()
+assert(not shown and requests == 0 and messageContains("No saved snapshot"))
+event("AUCTION_HOUSE_SHOW")
+addon:StartScan()
+addon:ReplayScan()
+assert(not shown and requests == 1 and messageContains("already in progress"))
 
 setup()
 function GetLocale() return "deDE" end

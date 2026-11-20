@@ -9,6 +9,9 @@ local function handleSlashCommand(message)
     if command == "scan" then
         addon:StartScan()
         return
+    elseif command == "replay" then
+        addon:ReplayScan()
+        return
     elseif command == "results" then
         addon:ShowResults()
         return
@@ -17,7 +20,7 @@ local function handleSlashCommand(message)
     local version = C_AddOns.GetAddOnMetadata(addonName, "Version")
 
     addon:Print("Loaded. Version " .. version .. ".")
-    addon:Print("Commands: /wmax scan, /wmax results.")
+    addon:Print("Commands: /wmax scan, /wmax replay (saved snapshot), /wmax results.")
 end
 
 local frame = CreateFrame("Frame")

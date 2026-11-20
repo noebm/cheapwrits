@@ -61,7 +61,7 @@ function addon:StartScan()
     local remaining = lastRequest and (snapshotCooldown - (GetServerTime() - lastRequest)) or 0
     if remaining > 0 then
         self:Print("Snapshot cooldown: try again in " .. math.ceil(remaining / 60)
-            .. " minutes. Use /wmax results for the last scan.")
+            .. " minutes. Use /wmax replay to recalculate the saved snapshot.")
         return
     end
 
@@ -72,6 +72,7 @@ function addon:StartScan()
         pending = {},
         requestedItems = {},
         startedAt = now,
+        requestedAt = GetServerTime(),
         deadline = now + timeout,
         nextProgressAt = now + progressInterval,
     }
@@ -84,6 +85,26 @@ function addon:StartScan()
     if not ok then
         stop("Snapshot request failed. Try /wmax scan again.")
     end
+end
+
+function addon:ReplayScan()
+    if scan then
+        self:Print("A scan is already in progress.")
+        return
+    end
+
+    local snapshot = WritMaxxerDB and WritMaxxerDB.snapshot
+    if not snapshot or snapshot.version ~= 1 then
+        self:Print("No saved snapshot. Open the auction house and use /wmax scan first.")
+        return
+    end
+
+    local age = math.max(0, GetServerTime() - snapshot.requestedAt)
+    self.results = self.Prices.BuildRows(snapshot.listings)
+    self.scannedAt = GetTime() - age
+    self:Print("Replayed saved snapshot (" .. math.floor(age / 60) .. " minutes old): "
+        .. #self.results .. " writs found.")
+    self:ShowResults(self.results)
 end
 
 local function readListing(index)
@@ -191,6 +212,11 @@ frame:SetScript("OnUpdate", function()
 
     addon.results = addon.Prices.BuildRows(scan.listings)
     addon.scannedAt = scan.startedAt
+    WritMaxxerDB.snapshot = {
+        version = 1,
+        requestedAt = scan.requestedAt,
+        listings = scan.listings,
+    }
     stop()
     addon:Print("Snapshot scan complete: " .. #addon.results .. " writs found. Prices are estimates from this snapshot.")
     addon:ShowResults(addon.results)
