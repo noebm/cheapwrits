@@ -204,7 +204,24 @@ local function sendRequest(task)
         if scan.more then
             AH.RequestMoreBrowseResults()
         else
-            AH.SendBrowseQuery({ searchString = task.name, sorts = {} })
+            -- Use the game's default filters, independent of the current UI selection.
+            local filters = {}
+            for filter, enabled in pairs(AUCTION_HOUSE_DEFAULT_FILTERS) do
+                if enabled then
+                    filters[#filters + 1] = filter
+                end
+            end
+
+            AH.SendBrowseQuery({
+                searchString = task.name,
+                minLevel = 0,
+                maxLevel = 0,
+                filters = filters,
+                sorts = {
+                    { sortOrder = Enum.AuctionHouseSortOrder.Name, reverseSort = false },
+                    { sortOrder = Enum.AuctionHouseSortOrder.Price, reverseSort = false },
+                },
+            })
         end
     elseif scan.more then
         if task.commodity then

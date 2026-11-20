@@ -9,6 +9,10 @@ local calls, infos, browse = {}, {}, {}
 local itemResults, commodityResults = {}, {}
 local fullBrowse, fullItems, fullCommodities = true, true, true
 local hooks, requestedItems = {}, {}
+local browseQueries = {}
+
+Enum = { AuctionHouseSortOrder = { Name = 0, Price = 1 } }
+AUCTION_HOUSE_DEFAULT_FILTERS = { [10] = true, [11] = true, [12] = false }
 
 function GetTime() return now end
 function GetLocale() return locale end
@@ -35,7 +39,10 @@ C_AuctionHouse = {
     -- Any accidental full scan fails this test immediately.
     ReplicateItems = function() error("Full AH scans are forbidden") end,
     IsThrottledMessageSystemReady = function() return ready end,
-    SendBrowseQuery = function(query) record("SendBrowseQuery", query.searchString) end,
+    SendBrowseQuery = function(query)
+        browseQueries[#browseQueries + 1] = query
+        record("SendBrowseQuery", query.searchString)
+    end,
     RequestMoreBrowseResults = function() record("RequestMoreBrowseResults") end,
     GetBrowseResults = function() return browse end,
     HasFullBrowseResults = function() return fullBrowse end,
@@ -95,6 +102,15 @@ assert(#calls == 0)
 ready = true
 tick()
 lastCall("SendBrowseQuery", "Writ:")
+local query = browseQueries[#browseQueries]
+assert(query.minLevel == 0 and query.maxLevel == 0, "Browse must use unrestricted level bounds")
+assert(#query.sorts == 2, "Browse must send explicit sort orders")
+assert(query.sorts[1].sortOrder == Enum.AuctionHouseSortOrder.Name and query.sorts[1].reverseSort == false)
+assert(query.sorts[2].sortOrder == Enum.AuctionHouseSortOrder.Price and query.sorts[2].reverseSort == false)
+local filters = {}
+for _, filter in ipairs(query.filters) do filters[filter] = true end
+assert(#query.filters == 2 and filters[10] and filters[11] and not filters[12])
+assert(AUCTION_HOUSE_DEFAULT_FILTERS[12] == false)
 addon:StartScan()
 assert(#calls == 1)
 
