@@ -81,6 +81,7 @@ local shotWrit = register(20, "Craftsman's Writ: Crafted Solid Shot", true)
 local rod = register(30, "Copper Rod")
 local shot = register(40, "Crafted Solid Shot", true)
 local recipe = register(50, "Recipe: Copper Rod")
+local envelope = register(60, "Sealed Journeyman's Writ")
 
 -- Wait for the AH and throttle readiness. Ignore stale results before sending.
 addon:StartScan()
@@ -93,7 +94,7 @@ tick()
 assert(#calls == 0)
 ready = true
 tick()
-lastCall("SendBrowseQuery", "Craftsman's Writ:")
+lastCall("SendBrowseQuery", "Writ:")
 addon:StartScan()
 assert(#calls == 1)
 
@@ -105,7 +106,7 @@ tick(0.2)
 assert(#calls == 1) -- Readiness alone must not bypass the local rate limit.
 tick(0.5)
 lastCall("RequestMoreBrowseResults")
-browse, fullBrowse = { writ, writ, shotWrit, recipe }, true
+browse, fullBrowse = { writ, writ, shotWrit, recipe, envelope }, true
 event("AUCTION_HOUSE_BROWSE_RESULTS_ADDED")
 tick()
 tick()
@@ -184,7 +185,7 @@ end
 -- No full-scan cooldown. A dropped request is retried after readiness.
 addon:StartScan()
 tick()
-lastCall("SendBrowseQuery", "Craftsman's Writ:")
+lastCall("SendBrowseQuery", "Writ:")
 event("AUCTION_HOUSE_THROTTLED_MESSAGE_DROPPED")
 callCount = #calls
 ready = false
@@ -193,7 +194,7 @@ assert(#calls == callCount)
 ready = true
 tick()
 assert(#calls == callCount + 1)
-lastCall("SendBrowseQuery", "Craftsman's Writ:")
+lastCall("SendBrowseQuery", "Writ:")
 
 -- External searches cancel; old results survive and late replies are ignored.
 local oldResults = completed

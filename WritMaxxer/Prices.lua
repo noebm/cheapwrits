@@ -7,10 +7,10 @@ addon.Prices = Prices
 -- ammunition is the known exception. Quantity reference:
 -- https://aidvir.github.io/wow-forever-favor/writs.html
 local requiredQuantities = { ["Crafted Solid Shot"] = 200 }
-Prices.WritSearch = "Craftsman's Writ:"
+Prices.WritSearch = "Writ:"
 
 function Prices.GetRequiredItemName(writName)
-    local prefix = Prices.WritSearch .. " "
+    local prefix = "Craftsman's Writ: "
     if writName:sub(1, #prefix) == prefix and #writName > #prefix then
         return writName:sub(#prefix + 1)
     end

@@ -11,6 +11,7 @@ end
 
 -- Exact name matching, cheapest buyouts, deduplication, and sorted totals.
 equal(addon.Prices.GetRequiredItemName("Craftsman's Writ: Copper Rod"), "Copper Rod")
+equal(addon.Prices.GetRequiredItemName("Craftsman's Writ: Lesser Stoneshield Potion"), "Lesser Stoneshield Potion")
 equal(addon.Prices.GetRequiredItemName("Craftsman's Writ: "), nil)
 equal(addon.Prices.GetRequiredItemName("Sealed Journeyman's Writ"), nil)
 
