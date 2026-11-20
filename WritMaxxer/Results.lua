@@ -74,7 +74,7 @@ local function createRow(index)
     row.item = createIcon(row, 216)
     row.itemPrice = label(row, 264, 140)
     row.reputation = label(row, 440, 64)
-    row.goldPerRep = label(row, 524, 148)
+    row.goldPer100Rep = label(row, 524, 148)
     return row
 end
 
@@ -99,7 +99,7 @@ local function createWindow()
     note:SetPoint("TOPLEFT", 16, -56)
     note:SetWidth(contentWidth)
     note:SetJustifyH("LEFT")
-    note:SetText("Counts: buyout stock. Unit prices: prorated estimates. Gold/rep: full turn-in cost, base rep.")
+    note:SetText("Counts: buyout stock. Unit prices: prorated estimates. Gold/100 rep: full turn-in cost, base rep.")
 
     local header = CreateFrame("Frame", nil, window)
     header:SetSize(contentWidth, 24)
@@ -107,7 +107,7 @@ local function createWindow()
     for _, column in ipairs({
         { 8, 40, "Writ" }, { 56, 140, "Unit price" },
         { 216, 40, "Item" }, { 264, 140, "Unit price" },
-        { 440, 64, "Rep" }, { 524, 148, "Gold / rep" },
+        { 440, 64, "Rep" }, { 524, 148, "Gold / 100 rep" },
     }) do
         label(header, column[1], column[2], "GameFontNormalSmall"):SetText(column[3])
     end
@@ -136,7 +136,7 @@ function addon:ShowResults(rows)
     end
 
     local age = math.floor((GetTime() - self.scannedAt) / 60)
-    status:SetText("Snapshot: " .. age .. " minutes old. Sorted by gold/rep, then availability. Hover icons for details.")
+    status:SetText("Snapshot: " .. age .. " minutes old. Sorted by gold/100 rep, then availability. Hover icons for details.")
     for index, row in ipairs(rows) do
         local frame = rowFrames[index] or createRow(index)
         rowFrames[index] = frame
@@ -145,7 +145,7 @@ function addon:ShowResults(rows)
         frame.writPrice:SetText(money(row.writCost))
         frame.itemPrice:SetText(money(row.itemUnitCost))
         frame.reputation:SetText(row.reputation or "Unknown")
-        frame.goldPerRep:SetText(row.costPerRep and string.format("%.6fg", row.costPerRep / 10000) or "Unavailable")
+        frame.goldPer100Rep:SetText(row.costPer100Rep and string.format("%.6fg", row.costPer100Rep / 10000) or "Unavailable")
         frame:Show()
     end
 
