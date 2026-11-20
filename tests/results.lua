@@ -52,7 +52,7 @@ local row = {
     writName = "Craftsman's Writ: Crafted Solid Shot", itemName = 'Crafted Solid Shot',
     writItemID = 264037, itemID = 8069, writIcon = 134939, itemIcon = 132384,
     writStock = 3, itemStock = 250, quantity = 200, availableTurnIns = 1,
-    writCost = 25, itemUnitCost = 1, reputation = 75, costPer100Rep = 425 * 100 / 75,
+    writCost = 25, itemUnitCost = 1, total = 425, reputation = 75, costPer100Rep = 425 * 100 / 75,
 }
 addon:ShowResults({ row, row })
 local buttons = {}
@@ -69,6 +69,7 @@ assert(not GameTooltip.shown)
 local firstRow = buttons[1].parent
 assert(firstRow.writPrice.text == '0g 0s 25c')
 assert(firstRow.itemPrice.text == '0g 0s 1c')
+assert(firstRow.totalPrice.text == '0g 4s 25c')
 assert(firstRow.reputation.text == '75')
 assert(firstRow.goldPer100Rep.text == '0.056667g')
 
@@ -81,6 +82,7 @@ addon:ShowResults({ old })
 assert(#frames > 0 and not buttons[3].parent.shown)
 assert(buttons[1].count.text == '1' and buttons[2].count.text == '0')
 assert(buttons[2].icon.texture == 'Interface\\Icons\\INV_Misc_QuestionMark')
+assert(firstRow.totalPrice.text == 'Unavailable')
 assert(firstRow.itemPrice.text == 'Unavailable' and firstRow.goldPer100Rep.text == 'Unavailable')
 buttons[2].scripts.OnEnter(buttons[2])
 assert(GameTooltip.text == 'Unknown item')

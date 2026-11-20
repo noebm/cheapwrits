@@ -3,7 +3,7 @@ local _, addon = ...
 local window, content, scroll, status, empty
 local rowFrames = {}
 local rowHeight = 44
-local contentWidth = 680
+local contentWidth = 840
 local unknownIcon = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local function money(copper)
@@ -73,14 +73,15 @@ local function createRow(index)
     row.writPrice = label(row, 56, 140)
     row.item = createIcon(row, 216)
     row.itemPrice = label(row, 264, 140)
-    row.reputation = label(row, 440, 64)
-    row.goldPer100Rep = label(row, 524, 148)
+    row.totalPrice = label(row, 424, 140)
+    row.reputation = label(row, 600, 64)
+    row.goldPer100Rep = label(row, 684, 148)
     return row
 end
 
 local function createWindow()
     window = CreateFrame("Frame", "WritMaxxerResults", UIParent, "BasicFrameTemplateWithInset")
-    window:SetSize(740, 520)
+    window:SetSize(900, 520)
     window:SetPoint("CENTER")
     window:SetFrameStrata("DIALOG")
     window.TitleText:SetText("WritMaxxer — Auction prices")
@@ -107,7 +108,8 @@ local function createWindow()
     for _, column in ipairs({
         { 8, 40, "Writ" }, { 56, 140, "Unit price" },
         { 216, 40, "Item" }, { 264, 140, "Unit price" },
-        { 440, 64, "Rep" }, { 524, 148, "Gold / 100 rep" },
+        { 424, 140, "Total (pair)" }, { 600, 64, "Rep" },
+        { 684, 148, "Gold / 100 rep" },
     }) do
         label(header, column[1], column[2], "GameFontNormalSmall"):SetText(column[3])
     end
@@ -144,6 +146,7 @@ function addon:ShowResults(rows)
         updateIcon(frame.item, row.itemName, row.itemID, row.itemIcon, row.itemStock, row.quantity)
         frame.writPrice:SetText(money(row.writCost))
         frame.itemPrice:SetText(money(row.itemUnitCost))
+        frame.totalPrice:SetText(money(row.total))
         frame.reputation:SetText(row.reputation or "Unknown")
         frame.goldPer100Rep:SetText(row.costPer100Rep and string.format("%.6fg", row.costPer100Rep / 10000) or "Unavailable")
         frame:Show()
