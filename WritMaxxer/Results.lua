@@ -41,7 +41,7 @@ end
 function addon:ShowResults(rows)
     rows = rows or self.results
     if not rows then
-        self:Print("No scan results yet. Open the auction house and use /wm scan.")
+        self:Print("No scan results yet. Open the auction house and use /wmax scan.")
         return
     end
 

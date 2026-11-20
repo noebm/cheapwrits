@@ -78,7 +78,7 @@ function addon:StartScan()
     end
 
     if not auctionOpen then
-        self:Print("Open the auction house first, then use /wm scan.")
+        self:Print("Open the auction house first, then use /wmax scan.")
         return
     end
 
@@ -237,7 +237,7 @@ frame:SetScript("OnEvent", function(_, event, argument)
 
             return
         elseif event == "AUCTION_HOUSE_BROWSE_FAILURE" and task.kind == "browse" then
-            stop("Auction search failed. Try /wm scan again.")
+            stop("Auction search failed. Try /wmax scan again.")
             return
         end
 
@@ -257,7 +257,7 @@ end)
 frame:SetScript("OnUpdate", function()
     local now = GetTime()
     if now >= scan.deadline then
-        stop("Scan timed out waiting for auction data. Try /wm scan again.")
+        stop("Scan timed out waiting for auction data. Try /wmax scan again.")
         return
     end
 
@@ -271,7 +271,7 @@ frame:SetScript("OnUpdate", function()
             local ok = pcall(sendRequest, task)
             sending = false
             if not ok then
-                stop("Auction search failed. Try /wm scan again.")
+                stop("Auction search failed. Try /wmax scan again.")
             end
         end
 

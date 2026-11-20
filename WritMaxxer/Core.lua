@@ -17,7 +17,7 @@ local function handleSlashCommand(message)
     local version = C_AddOns.GetAddOnMetadata(addonName, "Version")
 
     addon:Print("Loaded. Version " .. version .. ".")
-    addon:Print("Commands: /wm scan, /wm results.")
+    addon:Print("Commands: /wmax scan, /wmax results.")
 end
 
 local frame = CreateFrame("Frame")
@@ -30,6 +30,6 @@ frame:SetScript("OnEvent", function(self, event, loadedAddonName)
     self:UnregisterEvent(event)
 
     SLASH_WRITMAXXER1 = "/writmaxxer"
-    SLASH_WRITMAXXER2 = "/wm"
+    SLASH_WRITMAXXER2 = "/wmax"
     SlashCmdList.WRITMAXXER = handleSlashCommand
 end)
