@@ -40,12 +40,6 @@ hooksecurefunc(AH, "ReplicateItems", function()
 end)
 
 function addon:StartScan()
-    local locale = GetLocale()
-    if locale ~= "enUS" and locale ~= "enGB" then
-        self:Print("Writ name matching currently requires an English client.")
-        return
-    end
-
     if not auctionOpen then
         self:Print("Open the auction house first, then use /wmax scan.")
         return

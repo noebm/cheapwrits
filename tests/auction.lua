@@ -44,13 +44,19 @@ local function setup(saved)
         SendBrowseQuery = function() error("Snapshot scan must not browse") end,
         SendSearchQuery = function() error("Snapshot scan must not search individual items") end,
     }
-    assert(loadfile("WritMaxxer/WritReputation.lua"))("WritMaxxer", addon)
+    assert(loadfile("WritMaxxer/Writs.lua"))("WritMaxxer", addon)
     assert(loadfile("WritMaxxer/Prices.lua"))("WritMaxxer", addon)
     assert(loadfile("WritMaxxer/Auction.lua"))("WritMaxxer", addon)
 end
 
+local itemIDs = {
+    ["Golden Rod"] = 11128, ["Craftsman's Writ: Golden Rod"] = 264021,
+    ["Crafted Solid Shot"] = 8069, ["Craftsman's Writ: Crafted Solid Shot"] = 264037,
+    ["Barbaric Gloves"] = 4254, ["Craftsman's Writ: Barbaric Gloves"] = 264045,
+}
+
 local function listing(name, quantity, buyout)
-    return { name = name, quantity = quantity, buyout = buyout }
+    return { name = name, quantity = quantity, buyout = buyout, itemID = itemIDs[name] }
 end
 
 local function event(name) frame.scripts.OnEvent(frame, name) end
@@ -89,33 +95,33 @@ assert(messageContains("Waiting for auction snapshot"))
 assert(reads == 0, "Must wait for the snapshot event, not read a stale cache")
 
 snapshot = {
-    listing("Craftsman's Writ: Copper Rod", 1, 100),
-    listing("Craftsman's Writ: Copper Rod", 1, 80),
-    listing("Copper Rod", 2, 600),
-    listing("Recipe: Copper Rod", 1, 1),
+    listing("Craftsman's Writ: Golden Rod", 1, 100),
+    listing("Craftsman's Writ: Golden Rod", 1, 80),
+    listing("Golden Rod", 2, 600),
+    listing("Recipe: Golden Rod", 1, 1),
     listing("Craftsman's Writ: Crafted Solid Shot", 1, 25),
     listing("Crafted Solid Shot", 100, 100),
     listing("Crafted Solid Shot", 150, 450),
     listing("Sealed Journeyman's Writ", 1, 1),
-    listing("Craftsman's Writ: Bid Only", 1, 0),
-    listing("Bid Only", 1, 10),
+    listing("Craftsman's Writ: Barbaric Gloves", 1, 0),
+    listing("Barbaric Gloves", 1, 10),
 }
-local sold = listing("Copper Rod", 1, 1)
+local sold = listing("Golden Rod", 1, 1)
 sold.sold = true
 snapshot[#snapshot + 1] = sold
 event("REPLICATE_ITEM_LIST_UPDATE")
 event("REPLICATE_ITEM_LIST_UPDATE") -- Duplicate notifications must not double count.
 finish()
 assert(requests == 1 and #shown == 3)
-assert(shown[1].itemName == "Crafted Solid Shot" and shown[1].total == 425)
-assert(shown[1].reputation == 75 and shown[1].costPer100Rep == 425 * 100 / 75)
-assert(shown[2].itemName == "Copper Rod" and shown[2].total == 380)
+assert(shown[2].itemName == "Crafted Solid Shot" and shown[2].total == 425)
+assert(shown[2].reputation == 75 and shown[2].costPer100Rep == 425 * 100 / 75)
+assert(shown[1].itemName == "Golden Rod" and shown[1].total == 380)
 assert(shown[3].total == nil)
 assert(addon.scannedAt == 0)
 assert(WritMaxxerDB.snapshot.requestedAt == 100000)
 assert(#WritMaxxerDB.snapshot.listings == 10)
 assert(WritMaxxerDB.snapshot.listings[1].icon == 123)
-assert(WritMaxxerDB.snapshot.listings[2].itemID == 1)
+assert(WritMaxxerDB.snapshot.listings[2].itemID == 264021)
 assert(shown[1].writIcon == 123 and shown[1].itemIcon == 123)
 local oldResults = shown
 local messageCount = #addon.messages
@@ -131,8 +137,8 @@ serverTime = 100120
 local lastRequest = WritMaxxerDB.lastSnapshotRequestAt
 addon:ReplayScan()
 assert(requests == 0 and reads == 0 and #shown == 3)
-assert(shown[1].total == 425 and shown[2].total == 380)
-assert(shown[1].reputation == 75 and shown[1].costPer100Rep == 425 * 100 / 75)
+assert(shown[2].total == 425 and shown[1].total == 380)
+assert(shown[2].reputation == 75 and shown[2].costPer100Rep == 425 * 100 / 75)
 assert(shown[1].writIcon == 123 and shown[1].itemIcon == 123)
 assert(addon.scannedAt == -120, "Replay must preserve the snapshot's original age")
 assert(WritMaxxerDB.lastSnapshotRequestAt == lastRequest)
@@ -159,8 +165,8 @@ setup()
 event("AUCTION_HOUSE_SHOW")
 addon:StartScan()
 for index = 1, 2000 do snapshot[index] = listing("Unrelated Item", 1, 5) end
-snapshot[2001] = listing("Craftsman's Writ: Copper Rod", 1, 100)
-snapshot[2002] = listing("Copper Rod", 1, 300)
+snapshot[2001] = listing("Craftsman's Writ: Golden Rod", 1, 100)
+snapshot[2002] = listing("Golden Rod", 1, 300)
 event("REPLICATE_ITEM_LIST_UPDATE")
 assert(reads == 0, "Event handler must not process the full snapshot")
 tick(5)
@@ -191,14 +197,14 @@ assert(#shown == 0)
 setup()
 event("AUCTION_HOUSE_SHOW")
 addon:StartScan()
-snapshot = { listing(nil, 1, 100), listing("Copper Rod", 1, 300) }
-snapshot[1].itemID = 77
+snapshot = { listing(nil, 1, 100), listing("Golden Rod", 1, 300) }
+snapshot[1].itemID = 264021
 event("REPLICATE_ITEM_LIST_UPDATE")
 tick()
-assert(not shown and requestedItems[77] == 1)
+assert(not shown and requestedItems[264021] == 1)
 tick()
-assert(not shown and requestedItems[77] == 1)
-snapshot[1].name = "Craftsman's Writ: Copper Rod"
+assert(not shown and requestedItems[264021] == 1)
+snapshot[1].name = "Craftsman's Writ: Golden Rod"
 finish()
 assert(#shown == 1 and shown[1].total == 400)
 
@@ -207,12 +213,13 @@ setup()
 event("AUCTION_HOUSE_SHOW")
 addon:StartScan()
 snapshot = { listing(nil, 1, 100), listing(nil, 1, 300), listing(nil, 1, 200) }
+snapshot[1].itemID, snapshot[2].itemID = 264021, 11128
 event("REPLICATE_ITEM_LIST_UPDATE")
 tick()
-snapshot[2].name = "Copper Rod"
+snapshot[2].name = "Golden Rod"
 tick()
 assert(not shown)
-snapshot[1].name = "Craftsman's Writ: Copper Rod"
+snapshot[1].name = "Craftsman's Writ: Golden Rod"
 snapshot[3].name = "Unrelated Item"
 finish()
 assert(#shown == 1 and shown[1].total == 400)
@@ -221,8 +228,9 @@ assert(#shown == 1 and shown[1].total == 400)
 setup()
 event("AUCTION_HOUSE_SHOW")
 addon:StartScan()
-snapshot = { listing(nil, 1, 100), listing("Copper Rod", 1, 300) }
-snapshot[1].link = "|cffffffff|Hitem:77::::::::|h[Craftsman's Writ: Copper Rod]|h|r"
+snapshot = { listing(nil, 1, 100), listing("Golden Rod", 1, 300) }
+snapshot[1].itemID = 264021
+snapshot[1].link = "|cffffffff|Hitem:264021::::::::|h[Craftsman's Writ: Golden Rod]|h|r"
 event("REPLICATE_ITEM_LIST_UPDATE")
 finish()
 assert(#shown == 1 and shown[1].total == 400)
@@ -290,6 +298,20 @@ setup()
 function GetLocale() return "deDE" end
 event("AUCTION_HOUSE_SHOW")
 addon:StartScan()
-assert(requests == 0 and messageContains("English"))
+assert(requests == 1)
+snapshot = {
+    { name = "Lokalisierter Auftrag", itemID = 264021, quantity = 1, buyout = 100 },
+    { name = "Lokalisierter Gegenstand", itemID = 11128, quantity = 1, buyout = 300 },
+}
+event("REPLICATE_ITEM_LIST_UPDATE")
+finish()
+assert(#shown == 1 and shown[1].total == 400)
+assert(shown[1].itemName == "Lokalisierter Gegenstand")
+
+local localizedSnapshot = WritMaxxerDB
+setup(localizedSnapshot)
+addon:ReplayScan()
+assert(requests == 0 and #shown == 1 and shown[1].total == 400)
+assert(shown[1].itemName == "Lokalisierter Gegenstand")
 
 print("Snapshot auction lifecycle tests passed")

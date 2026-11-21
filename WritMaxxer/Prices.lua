@@ -3,21 +3,6 @@ local _, addon = ...
 local Prices = {}
 addon.Prices = Prices
 
--- English writ titles identify the finished item. Most require one item;
--- ammunition is the known exception. Quantity reference:
--- https://aidvir.github.io/wow-forever-favor/writs.html
-local requiredQuantities = { ["Crafted Solid Shot"] = 200 }
-Prices.WritSearch = "Craftsman's Writ:"
-
-function Prices.GetRequiredItemName(writName)
-    local prefix = Prices.WritSearch .. " "
-    if writName:sub(1, #prefix) == prefix and #writName > #prefix then
-        return writName:sub(#prefix + 1)
-    end
-
-    return nil
-end
-
 -- Estimate the cost of a quantity from available buyout tiers. Buyouts are
 -- listing totals; prorating assumes units can be bought separately.
 local function quantityCost(listings, quantity)
@@ -59,49 +44,48 @@ local function compareRows(a, b)
 end
 
 function Prices.BuildRows(listings)
-    local byName, writs, stock, metadata = {}, {}, {}, {}
+    local byID, writs, stock, metadata = {}, {}, {}, {}
     for _, listing in ipairs(listings) do
-        local name = listing.name
-        if name and listing.quantity and listing.quantity > 0 then
-            metadata[name] = metadata[name] or {}
-            metadata[name].itemID = metadata[name].itemID or listing.itemID
-            metadata[name].icon = metadata[name].icon or listing.icon
+        local itemID = listing.itemID
+        if itemID and itemID > 0 and listing.quantity and listing.quantity > 0 then
+            metadata[itemID] = metadata[itemID] or {}
+            metadata[itemID].name = metadata[itemID].name or listing.name
+            metadata[itemID].icon = metadata[itemID].icon or listing.icon
 
-            local itemName = Prices.GetRequiredItemName(name)
-            if itemName then
-                writs[name] = itemName
+            if addon.Writs[itemID] then
+                writs[itemID] = addon.Writs[itemID]
             end
 
             if listing.buyout and listing.buyout > 0 then
-                byName[name] = byName[name] or {}
-                table.insert(byName[name], listing)
-                stock[name] = (stock[name] or 0) + listing.quantity
+                byID[itemID] = byID[itemID] or {}
+                table.insert(byID[itemID], listing)
+                stock[itemID] = (stock[itemID] or 0) + listing.quantity
             end
         end
     end
 
     local rows = {}
-    for writName, itemName in pairs(writs) do
-        local quantity = requiredQuantities[itemName] or 1
-        local writCost = quantityCost(byName[writName], 1)
-        local itemCost = quantityCost(byName[itemName], quantity)
+    for writItemID, writ in pairs(writs) do
+        local itemID, quantity = writ.itemID, writ.quantity
+        local writCost = quantityCost(byID[writItemID], 1)
+        local itemCost = quantityCost(byID[itemID], quantity)
         local total = writCost and itemCost and (writCost + itemCost) or nil
-        local reputation = addon.WritReputation[itemName]
-        local writInfo, itemInfo = metadata[writName] or {}, metadata[itemName] or {}
+        local reputation = writ.reputation
+        local writInfo, itemInfo = metadata[writItemID] or {}, metadata[itemID] or {}
 
         rows[#rows + 1] = {
-            writName = writName,
-            itemName = itemName,
+            writName = writInfo.name or tostring(writItemID),
+            itemName = itemInfo.name or tostring(itemID),
             quantity = quantity,
-            writStock = stock[writName] or 0,
-            itemStock = stock[itemName] or 0,
-            writItemID = writInfo.itemID,
-            itemID = itemInfo.itemID,
+            writStock = stock[writItemID] or 0,
+            itemStock = stock[itemID] or 0,
+            writItemID = writItemID,
+            itemID = itemID,
             writIcon = writInfo.icon,
             itemIcon = itemInfo.icon,
-            itemUnitCost = quantityCost(byName[itemName], 1),
+            itemUnitCost = quantityCost(byID[itemID], 1),
             costPerRep = total and reputation and (total / reputation) or nil,
-            availableTurnIns = math.min(stock[writName] or 0, math.floor((stock[itemName] or 0) / quantity)),
+            availableTurnIns = math.min(stock[writItemID] or 0, math.floor((stock[itemID] or 0) / quantity)),
             writCost = writCost,
             itemCost = itemCost,
             total = total,
