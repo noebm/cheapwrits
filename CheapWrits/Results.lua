@@ -152,7 +152,7 @@ end
 function addon:ShowResults(rows)
     rows = rows or self.results
     if not rows then
-        self:Print("No results loaded. Use /cw replay for a saved snapshot, or /cw scan at the auction house.")
+        self:Print("No results loaded. Use /cwr replay for a saved snapshot, or /cwr scan at the auction house.")
         return
     end
 

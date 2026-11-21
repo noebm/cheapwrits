@@ -7,7 +7,7 @@ A World of Warcraft: Forever addon that ranks Craftsman's Writs by estimated pri
 
 Download a ZIP from GitHub Releases or Actions artifacts and extract its `CheapWrits` folder into your game's `Interface/AddOns` directory.
 
-- `/cw` — Show help and addon version.
-- `/cw scan` — Scan auction prices. Keep the auction house open until complete.
-- `/cw replay` — Recalculate the saved snapshot, including after `/reload`.
-- `/cw results` — Open the current results.
+- `/cwr` — Show help and addon version.
+- `/cwr scan` — Scan auction prices. Keep the auction house open until complete.
+- `/cwr replay` — Recalculate the saved snapshot, including after `/reload`.
+- `/cwr results` — Open the current results.

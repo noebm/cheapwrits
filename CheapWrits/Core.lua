@@ -20,7 +20,7 @@ local function handleSlashCommand(message)
     local version = C_AddOns.GetAddOnMetadata(addonName, "Version")
 
     addon:Print("Loaded. Version " .. version .. ".")
-    addon:Print("Commands: /cw scan, /cw replay (saved snapshot), /cw results.")
+    addon:Print("Commands: /cwr scan, /cwr replay (saved snapshot), /cwr results.")
 end
 
 local frame = CreateFrame("Frame")
@@ -33,6 +33,6 @@ frame:SetScript("OnEvent", function(self, event, loadedAddonName)
     self:UnregisterEvent(event)
 
     SLASH_CHEAPWRITS1 = "/cheapwrits"
-    SLASH_CHEAPWRITS2 = "/cw"
+    SLASH_CHEAPWRITS2 = "/cwr"
     SlashCmdList.CHEAPWRITS = handleSlashCommand
 end)

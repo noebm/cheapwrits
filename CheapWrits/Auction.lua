@@ -41,7 +41,7 @@ end)
 
 function addon:StartScan()
     if not auctionOpen then
-        self:Print("Open the auction house first, then use /cw scan.")
+        self:Print("Open the auction house first, then use /cwr scan.")
         return
     end
 
@@ -55,7 +55,7 @@ function addon:StartScan()
     local remaining = lastRequest and (snapshotCooldown - (GetServerTime() - lastRequest)) or 0
     if remaining > 0 then
         self:Print("Snapshot cooldown: try again in " .. math.ceil(remaining / 60)
-            .. " minutes. Use /cw replay to recalculate the saved snapshot.")
+            .. " minutes. Use /cwr replay to recalculate the saved snapshot.")
         return
     end
 
@@ -77,7 +77,7 @@ function addon:StartScan()
     local ok = pcall(AH.ReplicateItems)
     requesting = false
     if not ok then
-        stop("Snapshot request failed. Try /cw scan again.")
+        stop("Snapshot request failed. Try /cwr scan again.")
     end
 end
 
@@ -89,7 +89,7 @@ function addon:ReplayScan()
 
     local snapshot = CheapWritsDB and CheapWritsDB.snapshot
     if not snapshot or snapshot.version ~= 1 then
-        self:Print("No saved snapshot. Open the auction house and use /cw scan first.")
+        self:Print("No saved snapshot. Open the auction house and use /cwr scan first.")
         return
     end
 
