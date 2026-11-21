@@ -11,6 +11,7 @@ local function widget(parent)
     function self:SetMovable() end
     function self:EnableMouse() end
     function self:RegisterForDrag() end
+    function self:RegisterEvent() end
     function self:SetJustifyH() end
     function self:SetSpacing() end
     function self:GetStringHeight() return 40 end
@@ -40,7 +41,10 @@ function GetTime() return 120 end
 C_Map = { GetMapInfo = function(id)
     if id == 1437 then return { name = 'Sumpfland' } end
 end }
-C_Item = { GetItemInfoInstant = function() return nil end }
+C_Item = {
+    GetItemInfoInstant = function() return nil end,
+    GetItemInfo = function() return nil end,
+}
 C_CurrencyInfo = {
     GetCoinTextureString = function(copper)
         assert(copper == math.floor(copper), 'Coin formatting requires whole copper')
@@ -109,3 +113,67 @@ assert(firstRow.turnInZone.text == 'Unknown', 'Handle map data unavailable in th
 addon:ShowResults({})
 assert(not firstRow.shown)
 print('Results UI tests passed')
+
+-- Missing stock still gets its localized name from item data, including late loads.
+local itemNames = { [11128] = 'Goldrute' }
+C_Item.GetItemInfo = function(id) return itemNames[id] end
+local missing = {
+    writName = 'Rod writ', writItemID = 264021, writStock = 1,
+    itemName = 'Stale snapshot name', itemID = 11128, itemStock = 0, quantity = 1,
+}
+addon:ShowResults({ missing })
+assert(firstRow.itemName.text == 'Goldrute', 'Resolve names without auction stock')
+assert(missing.itemName == 'Stale snapshot name', 'Rendering leaves pricing rows unchanged')
+
+local late = {
+    writName = 'Ammo writ', writItemID = 264037, writStock = 1,
+    itemName = '8069', itemID = 8069, itemStock = 0, quantity = 200,
+}
+addon:ShowResults({ late })
+assert(firstRow.itemName.text == '8069')
+local window
+for _, frame in ipairs(frames) do
+    if frame.name == 'WritMaxxerResults' then window = frame end
+end
+itemNames[8069] = 'Munition'
+window.scripts.OnEvent(window, 'GET_ITEM_INFO_RECEIVED', 8069, true)
+assert(firstRow.itemName.text == 'Munition', 'Refresh names when item data arrives')
+assert(firstRow.item.count.text == '0' and firstRow.totalPrice.text == 'Unavailable')
+
+-- A late response must not overwrite a reused row.
+addon:ShowResults({ row })
+window.scripts.OnEvent(window, 'GET_ITEM_INFO_RECEIVED', 8069, true)
+assert(firstRow.itemName.text == 'Munition')
+assert(row.itemName == 'Crafted Solid Shot', 'Rendering leaves snapshot metadata unchanged')
+print('Item name lookup tests passed')
+
+-- Shared item IDs resolve once per render, supplying both names and icons.
+local lookups = {}
+C_Item.GetItemInfo = function(id)
+    lookups[id] = (lookups[id] or 0) + 1
+    return itemNames[id], nil, nil, nil, nil, nil, nil, nil, nil, 987
+end
+C_Item.GetItemInfoInstant = function() error('Rendering must use the resolved metadata') end
+addon:ShowResults({ missing, missing })
+assert(lookups[11128] == 1 and lookups[264021] == 1)
+assert(firstRow.itemName.text == 'Goldrute' and firstRow.item.icon.texture == 987)
+assert(buttons[4].icon.texture == 987)
+
+-- Loading one item updates every matching row without redrawing or moving the view.
+local scroll
+for _, frame in ipairs(frames) do
+    if frame.kind == 'ScrollFrame' then scroll = frame end
+end
+scroll:SetVerticalScroll(88)
+window:Hide()
+itemNames[11128] = 'Updated rod'
+lookups = {}
+window.scripts.OnEvent(window, 'GET_ITEM_INFO_RECEIVED', 11128, true)
+assert(firstRow.itemName.text == 'Updated rod')
+assert(buttons[4].parent.itemName.text == 'Updated rod')
+assert(scroll.offset == 88 and not window.shown, 'Item loading preserves the current view')
+assert(lookups[11128] == 1 and lookups[264021] == nil, 'Only the loaded item is looked up')
+lookups = {}
+window.scripts.OnEvent(window, 'GET_ITEM_INFO_RECEIVED', 99999, true)
+window.scripts.OnEvent(window, 'GET_ITEM_INFO_RECEIVED', 11128, false)
+assert(next(lookups) == nil, 'Ignore unrelated and failed loads')

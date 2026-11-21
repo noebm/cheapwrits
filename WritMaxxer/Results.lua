@@ -1,6 +1,7 @@
 local _, addon = ...
 
 local window, content, scroll, status, empty
+local displayedRows
 local rowFrames = {}
 local rowHeight = 44
 local contentWidth = 1260
@@ -46,11 +47,6 @@ local function createIcon(parent, x)
 end
 
 local function updateIcon(button, name, itemID, icon, stock, required)
-    if not icon then
-        local resolvedID, _, _, _, resolvedIcon = C_Item.GetItemInfoInstant(itemID or name)
-        itemID, icon = itemID or resolvedID, resolvedIcon
-    end
-
     button.itemName, button.itemID = name, itemID
     button.stock, button.required = stock, required
     button.icon:SetTexture(icon or unknownIcon)
@@ -79,12 +75,38 @@ local function createRow(index)
     return row
 end
 
+local function onItemInfoReceived(_, _, itemID, success)
+    if not success then return end
+
+    local name, icon, resolved
+    for index, row in ipairs(displayedRows or {}) do
+        if row.itemID == itemID or row.writItemID == itemID then
+            if not resolved then
+                local itemName, _, _, _, _, _, _, _, _, itemIcon = C_Item.GetItemInfo(itemID)
+                name, icon, resolved = itemName, itemIcon, true
+            end
+
+            local frame = rowFrames[index]
+            for _, button in ipairs({ frame.item, frame.writ }) do
+                if button.itemID == itemID then
+                    button.itemName = name or button.itemName
+                    if icon then button.icon:SetTexture(icon) end
+                end
+            end
+
+            frame.itemName:SetText(frame.item.itemName)
+        end
+    end
+end
+
 local function createWindow()
     window = CreateFrame("Frame", "WritMaxxerResults", UIParent, "BasicFrameTemplateWithInset")
     window:SetSize(1320, 520)
     window:SetPoint("CENTER")
     window:SetFrameStrata("DIALOG")
     window.TitleText:SetText("WritMaxxer — Auction prices")
+    window:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+    window:SetScript("OnEvent", onItemInfoReceived)
     window:SetMovable(true)
     window:EnableMouse(true)
     window:RegisterForDrag("LeftButton")
@@ -138,6 +160,21 @@ function addon:ShowResults(rows)
         createWindow()
     end
 
+    displayedRows = rows
+
+    -- WoW caches item data globally; this table only deduplicates lookups for this render.
+    -- Uncached data arrives through GET_ITEM_INFO_RECEIVED and updates the matching rows.
+    local metadata = {}
+    for _, row in ipairs(rows) do
+        for _, key in ipairs({ "writItemID", "itemID" }) do
+            local itemID = row[key]
+            if itemID and not metadata[itemID] then
+                local name, _, _, _, _, _, _, _, _, icon = C_Item.GetItemInfo(itemID)
+                metadata[itemID] = { name = name, icon = icon }
+            end
+        end
+    end
+
     local age = math.floor((GetTime() - self.scannedAt) / 60)
     status:SetText("Snapshot: " .. age .. " minutes old. Sorted by price/100 rep, then availability. Hover icons for details.")
     for index, row in ipairs(rows) do
@@ -145,11 +182,13 @@ function addon:ShowResults(rows)
         rowFrames[index] = frame
         local writ = self.Writs[row.writItemID]
         local mapInfo = writ and writ.turnInMapID and C_Map.GetMapInfo(writ.turnInMapID)
+        local writInfo = metadata[row.writItemID] or {}
+        local itemInfo = metadata[row.itemID] or {}
 
         frame.turnInZone:SetText(mapInfo and mapInfo.name or "Unknown")
-        frame.itemName:SetText(row.itemName)
-        updateIcon(frame.writ, row.writName, row.writItemID, row.writIcon, row.writStock, 1)
-        updateIcon(frame.item, row.itemName, row.itemID, row.itemIcon, row.itemStock, row.quantity)
+        updateIcon(frame.writ, writInfo.name or row.writName, row.writItemID, writInfo.icon or row.writIcon, row.writStock, 1)
+        updateIcon(frame.item, itemInfo.name or row.itemName, row.itemID, itemInfo.icon or row.itemIcon, row.itemStock, row.quantity)
+        frame.itemName:SetText(frame.item.itemName)
         frame.writPrice:SetText(money(row.writCost))
         frame.itemPrice:SetText(money(row.itemUnitCost))
         frame.totalPrice:SetText(money(row.total))
