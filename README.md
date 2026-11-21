@@ -2,6 +2,8 @@
 
 Ranks Craftsman's Writs by estimated price per 100 reputation.
 
+Download a ZIP from GitHub Releases or Actions artifacts and extract its `WritMaxxer` folder into your game's `Interface/AddOns` directory.
+
 - `/wmax` — Show help and addon version.
 - `/wmax scan` — Scan auction prices. Keep the auction house open until complete.
 - `/wmax replay` — Recalculate the saved snapshot, including after `/reload`.
