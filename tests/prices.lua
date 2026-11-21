@@ -128,5 +128,8 @@ for writID, writ in pairs(addon.Writs) do
     count = count + 1
 end
 equal(count, 150)
+equal(addon.Writs[264037].turnInMapID, 1437)
+equal(addon.Writs[264065].turnInMapID, 1447)
+equal(addon.Writs[264121].turnInMapID, nil)
 
 print("Price tests passed")

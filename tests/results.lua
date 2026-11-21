@@ -37,6 +37,9 @@ function CreateFrame(kind, name, parent)
 end
 UIParent, UISpecialFrames = {}, {}
 function GetTime() return 120 end
+C_Map = { GetMapInfo = function(id)
+    if id == 1437 then return { name = 'Sumpfland' } end
+end }
 C_Item = { GetItemInfoInstant = function() return nil end }
 C_CurrencyInfo = {
     GetCoinTextureString = function(copper)
@@ -50,6 +53,7 @@ function GameTooltip:SetItemByID(id) self.itemID = id end
 function GameTooltip:AddLine(line) self.line = line end
 
 local addon = { scannedAt = 0 }
+assert(loadfile('WritMaxxer/Writs.lua'))('WritMaxxer', addon)
 function addon:Print(message) self.message = message end
 assert(loadfile('WritMaxxer/Results.lua'))('WritMaxxer', addon)
 addon:ShowResults()
@@ -74,6 +78,7 @@ buttons[2].scripts.OnLeave(buttons[2])
 assert(not GameTooltip.shown)
 local firstRow = buttons[1].parent
 assert(firstRow.itemName.text == 'Crafted Solid Shot')
+assert(firstRow.turnInZone.text == 'Sumpfland', 'Resolve zone names in the client locale')
 assert(firstRow.writPrice.text == 'coin icons: 25')
 assert(firstRow.itemPrice.text == 'coin icons: 1')
 assert(firstRow.totalPrice.text == 'coin icons: 425')
@@ -90,6 +95,7 @@ assert(#frames > 0 and not buttons[3].parent.shown)
 assert(buttons[1].count.text == '1' and buttons[2].count.text == '0')
 assert(buttons[2].icon.texture == 'Interface\\Icons\\INV_Misc_QuestionMark')
 assert(firstRow.itemName.text == 'Unknown item')
+assert(firstRow.turnInZone.text == 'Unknown')
 assert(firstRow.totalPrice.text == 'Unavailable')
 assert(firstRow.itemPrice.text == 'Unavailable' and firstRow.pricePer100Rep.text == 'Unavailable')
 buttons[2].scripts.OnEnter(buttons[2])
@@ -97,6 +103,9 @@ assert(GameTooltip.text == 'Unknown item')
 local frameCount = #frames
 addon:ShowResults({ row })
 assert(#frames == frameCount and firstRow.shown, 'Reuse existing rows')
+C_Map.GetMapInfo = function() return nil end
+addon:ShowResults({ row })
+assert(firstRow.turnInZone.text == 'Unknown', 'Handle map data unavailable in this client')
 addon:ShowResults({})
 assert(not firstRow.shown)
 print('Results UI tests passed')

@@ -3,7 +3,7 @@ local _, addon = ...
 local window, content, scroll, status, empty
 local rowFrames = {}
 local rowHeight = 44
-local contentWidth = 1080
+local contentWidth = 1260
 local unknownIcon = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local function money(copper)
@@ -75,12 +75,13 @@ local function createRow(index)
     row.totalPrice = label(row, 664, 140)
     row.reputation = label(row, 840, 64)
     row.pricePer100Rep = label(row, 924, 148)
+    row.turnInZone = label(row, 1088, 164)
     return row
 end
 
 local function createWindow()
     window = CreateFrame("Frame", "WritMaxxerResults", UIParent, "BasicFrameTemplateWithInset")
-    window:SetSize(1140, 520)
+    window:SetSize(1320, 520)
     window:SetPoint("CENTER")
     window:SetFrameStrata("DIALOG")
     window.TitleText:SetText("WritMaxxer — Auction prices")
@@ -109,7 +110,7 @@ local function createWindow()
         { 248, 40, "Writ" }, { 296, 140, "Unit price" },
         { 456, 40, "Item" }, { 504, 140, "Unit price" },
         { 664, 140, "Total (pair)" }, { 840, 64, "Rep" },
-        { 924, 148, "Price / 100 rep" },
+        { 924, 148, "Price / 100 rep" }, { 1088, 164, "Turn-in zone" },
     }) do
         label(header, column[1], column[2], "GameFontNormalSmall"):SetText(column[3])
     end
@@ -142,6 +143,10 @@ function addon:ShowResults(rows)
     for index, row in ipairs(rows) do
         local frame = rowFrames[index] or createRow(index)
         rowFrames[index] = frame
+        local writ = self.Writs[row.writItemID]
+        local mapInfo = writ and writ.turnInMapID and C_Map.GetMapInfo(writ.turnInMapID)
+
+        frame.turnInZone:SetText(mapInfo and mapInfo.name or "Unknown")
         frame.itemName:SetText(row.itemName)
         updateIcon(frame.writ, row.writName, row.writItemID, row.writIcon, row.writStock, 1)
         updateIcon(frame.item, row.itemName, row.itemID, row.itemIcon, row.itemStock, row.quantity)
