@@ -57,9 +57,9 @@ function GameTooltip:SetItemByID(id) self.itemID = id end
 function GameTooltip:AddLine(line) self.line = line end
 
 local addon = { scannedAt = 0 }
-assert(loadfile('WritMaxxer/Writs.lua'))('WritMaxxer', addon)
+assert(loadfile('CheapWrits/Writs.lua'))('CheapWrits', addon)
 function addon:Print(message) self.message = message end
-assert(loadfile('WritMaxxer/Results.lua'))('WritMaxxer', addon)
+assert(loadfile('CheapWrits/Results.lua'))('CheapWrits', addon)
 addon:ShowResults()
 assert(addon.message:find('No results loaded', 1, true))
 local row = {
@@ -133,7 +133,7 @@ addon:ShowResults({ late })
 assert(firstRow.itemName.text == '8069')
 local window
 for _, frame in ipairs(frames) do
-    if frame.name == 'WritMaxxerResults' then window = frame end
+    if frame.name == 'CheapWritsResults' then window = frame end
 end
 itemNames[8069] = 'Munition'
 window.scripts.OnEvent(window, 'GET_ITEM_INFO_RECEIVED', 8069, true)

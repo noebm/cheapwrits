@@ -1,5 +1,5 @@
 {
-  description = "WritMaxxer addon for World of Warcraft: Forever";
+  description = "CheapWrits addon for World of Warcraft: Forever";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -22,7 +22,7 @@
           };
         in
         {
-          writ-maxxer = addon;
+          cheapwrits = addon;
           default = addon;
         }
       );

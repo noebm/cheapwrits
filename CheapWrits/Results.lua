@@ -100,11 +100,11 @@ local function onItemInfoReceived(_, _, itemID, success)
 end
 
 local function createWindow()
-    window = CreateFrame("Frame", "WritMaxxerResults", UIParent, "BasicFrameTemplateWithInset")
+    window = CreateFrame("Frame", "CheapWritsResults", UIParent, "BasicFrameTemplateWithInset")
     window:SetSize(1320, 520)
     window:SetPoint("CENTER")
     window:SetFrameStrata("DIALOG")
-    window.TitleText:SetText("WritMaxxer — Auction prices")
+    window.TitleText:SetText("CheapWrits — Auction prices")
     window:RegisterEvent("GET_ITEM_INFO_RECEIVED")
     window:SetScript("OnEvent", onItemInfoReceived)
     window:SetMovable(true)
@@ -112,7 +112,7 @@ local function createWindow()
     window:RegisterForDrag("LeftButton")
     window:SetScript("OnDragStart", window.StartMoving)
     window:SetScript("OnDragStop", window.StopMovingOrSizing)
-    table.insert(UISpecialFrames, "WritMaxxerResults")
+    table.insert(UISpecialFrames, "CheapWritsResults")
 
     status = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     status:SetPoint("TOPLEFT", 16, -36)
@@ -152,7 +152,7 @@ end
 function addon:ShowResults(rows)
     rows = rows or self.results
     if not rows then
-        self:Print("No results loaded. Use /wmax replay for a saved snapshot, or /wmax scan at the auction house.")
+        self:Print("No results loaded. Use /cw replay for a saved snapshot, or /cw scan at the auction house.")
         return
     end
 

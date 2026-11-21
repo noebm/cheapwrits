@@ -1,7 +1,7 @@
 local addonName, addon = ...
 
 function addon:Print(message)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99WritMaxxer|r: " .. message)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99CheapWrits|r: " .. message)
 end
 
 local function handleSlashCommand(message)
@@ -20,7 +20,7 @@ local function handleSlashCommand(message)
     local version = C_AddOns.GetAddOnMetadata(addonName, "Version")
 
     addon:Print("Loaded. Version " .. version .. ".")
-    addon:Print("Commands: /wmax scan, /wmax replay (saved snapshot), /wmax results.")
+    addon:Print("Commands: /cw scan, /cw replay (saved snapshot), /cw results.")
 end
 
 local frame = CreateFrame("Frame")
@@ -32,7 +32,7 @@ frame:SetScript("OnEvent", function(self, event, loadedAddonName)
 
     self:UnregisterEvent(event)
 
-    SLASH_WRITMAXXER1 = "/writmaxxer"
-    SLASH_WRITMAXXER2 = "/wmax"
-    SlashCmdList.WRITMAXXER = handleSlashCommand
+    SLASH_CHEAPWRITS1 = "/cheapwrits"
+    SLASH_CHEAPWRITS2 = "/cw"
+    SlashCmdList.CHEAPWRITS = handleSlashCommand
 end)

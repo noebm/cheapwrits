@@ -18,24 +18,24 @@ let
       throw "Expected a release tag such as v0.1.0 or v0.1.0-rc.1";
 in
 stdenvNoCC.mkDerivation {
-  pname = "writ-maxxer";
+  pname = "cheapwrits";
   version = package-version;
-  src = ./WritMaxxer;
+  src = ./CheapWrits;
   dontBuild = true;
 
   installPhase = ''
     runHook preInstall
 
-    mkdir -p "$out/share/wow-addons/WritMaxxer"
-    cp -r ./. "$out/share/wow-addons/WritMaxxer/"
-    substituteInPlace "$out/share/wow-addons/WritMaxxer/WritMaxxer.toc" \
+    mkdir -p "$out/share/wow-addons/CheapWrits"
+    cp -r ./. "$out/share/wow-addons/CheapWrits/"
+    substituteInPlace "$out/share/wow-addons/CheapWrits/CheapWrits.toc" \
       --replace-fail '## Version: dev' "## Version: $version"
 
     runHook postInstall
   '';
 
   passthru = {
-    addonDirectories = [ "WritMaxxer" ];
+    addonDirectories = [ "CheapWrits" ];
     gameCompatibility = {
       flavor = "forever";
       interface = 16001;
@@ -43,7 +43,7 @@ stdenvNoCC.mkDerivation {
   };
 
   meta = {
-    description = "WritMaxxer for World of Warcraft: Forever";
+    description = "CheapWrits for World of Warcraft: Forever";
     platforms = lib.platforms.all;
   };
 }

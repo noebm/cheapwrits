@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: CheapWrits
+## Notes: CheapWrits for World of Warcraft: Forever.
+## Version: dev
+## SavedVariables: CheapWritsDB
+
+Writs.lua
+Prices.lua
+Results.lua
+Auction.lua
+Core.lua

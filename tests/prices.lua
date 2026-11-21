@@ -1,6 +1,6 @@
 local addon = {}
-assert(loadfile("WritMaxxer/Writs.lua"))("WritMaxxer", addon)
-assert(loadfile("WritMaxxer/Prices.lua"))("WritMaxxer", addon)
+assert(loadfile("CheapWrits/Writs.lua"))("CheapWrits", addon)
+assert(loadfile("CheapWrits/Prices.lua"))("CheapWrits", addon)
 
 local function listing(itemID, name, quantity, buyout, icon)
     return { itemID = itemID, name = name, quantity = quantity, buyout = buyout, icon = icon }

@@ -31,8 +31,8 @@ end
 
 -- Snapshot requests from any addon share the server cooldown and replace the cache.
 hooksecurefunc(AH, "ReplicateItems", function()
-    WritMaxxerDB = WritMaxxerDB or {}
-    WritMaxxerDB.lastSnapshotRequestAt = GetServerTime()
+    CheapWritsDB = CheapWritsDB or {}
+    CheapWritsDB.lastSnapshotRequestAt = GetServerTime()
 
     if scan and not requesting then
         stop("Scan cancelled because another snapshot was requested.")
@@ -41,7 +41,7 @@ end)
 
 function addon:StartScan()
     if not auctionOpen then
-        self:Print("Open the auction house first, then use /wmax scan.")
+        self:Print("Open the auction house first, then use /cw scan.")
         return
     end
 
@@ -50,12 +50,12 @@ function addon:StartScan()
         return
     end
 
-    WritMaxxerDB = WritMaxxerDB or {}
-    local lastRequest = WritMaxxerDB.lastSnapshotRequestAt
+    CheapWritsDB = CheapWritsDB or {}
+    local lastRequest = CheapWritsDB.lastSnapshotRequestAt
     local remaining = lastRequest and (snapshotCooldown - (GetServerTime() - lastRequest)) or 0
     if remaining > 0 then
         self:Print("Snapshot cooldown: try again in " .. math.ceil(remaining / 60)
-            .. " minutes. Use /wmax replay to recalculate the saved snapshot.")
+            .. " minutes. Use /cw replay to recalculate the saved snapshot.")
         return
     end
 
@@ -77,7 +77,7 @@ function addon:StartScan()
     local ok = pcall(AH.ReplicateItems)
     requesting = false
     if not ok then
-        stop("Snapshot request failed. Try /wmax scan again.")
+        stop("Snapshot request failed. Try /cw scan again.")
     end
 end
 
@@ -87,9 +87,9 @@ function addon:ReplayScan()
         return
     end
 
-    local snapshot = WritMaxxerDB and WritMaxxerDB.snapshot
+    local snapshot = CheapWritsDB and CheapWritsDB.snapshot
     if not snapshot or snapshot.version ~= 1 then
-        self:Print("No saved snapshot. Open the auction house and use /wmax scan first.")
+        self:Print("No saved snapshot. Open the auction house and use /cw scan first.")
         return
     end
 
@@ -209,7 +209,7 @@ frame:SetScript("OnUpdate", function()
 
     addon.results = addon.Prices.BuildRows(scan.listings)
     addon.scannedAt = scan.startedAt
-    WritMaxxerDB.snapshot = {
+    CheapWritsDB.snapshot = {
         version = 1,
         requestedAt = scan.requestedAt,
         listings = scan.listings,

@@ -11,7 +11,7 @@ jobs:
   package:
     runs-on: ubuntu-latest
     env:
-      ZIP_FILE: WritMaxxer-${{ github.event.release.tag_name || github.sha }}.zip
+      ZIP_FILE: CheapWrits-${{ github.event.release.tag_name || github.sha }}.zip
     permissions:
       contents: write
     steps:
@@ -21,11 +21,11 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          derivation=$(nix eval --impure --raw .#writ-maxxer --apply 'pkg: (pkg.override { releaseTag = builtins.getEnv "RELEASE_TAG"; }).drvPath')
+          derivation=$(nix eval --impure --raw .#cheapwrits --apply 'pkg: (pkg.override { releaseTag = builtins.getEnv "RELEASE_TAG"; }).drvPath')
           nix build "$derivation^*"
       - name: Create addon ZIP
         working-directory: result/share/wow-addons
-        run: zip -r "$GITHUB_WORKSPACE/$ZIP_FILE" WritMaxxer
+        run: zip -r "$GITHUB_WORKSPACE/$ZIP_FILE" CheapWrits
       - name: Upload addon ZIP
         uses: actions/upload-artifact@v7.0.2
         with:

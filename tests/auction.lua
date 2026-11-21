@@ -8,7 +8,7 @@ local function setup(saved)
 
     snapshot, requests, shown, now, serverTime = {}, 0, nil, 0, 100000
     hooks, reads, requestedItems, failRequest = {}, 0, {}, false
-    WritMaxxerDB = saved or {}
+    CheapWritsDB = saved or {}
     function GetTime() return now end
     function GetServerTime() return serverTime end
     function GetLocale() return "enUS" end
@@ -44,9 +44,9 @@ local function setup(saved)
         SendBrowseQuery = function() error("Snapshot scan must not browse") end,
         SendSearchQuery = function() error("Snapshot scan must not search individual items") end,
     }
-    assert(loadfile("WritMaxxer/Writs.lua"))("WritMaxxer", addon)
-    assert(loadfile("WritMaxxer/Prices.lua"))("WritMaxxer", addon)
-    assert(loadfile("WritMaxxer/Auction.lua"))("WritMaxxer", addon)
+    assert(loadfile("CheapWrits/Writs.lua"))("CheapWrits", addon)
+    assert(loadfile("CheapWrits/Prices.lua"))("CheapWrits", addon)
+    assert(loadfile("CheapWrits/Auction.lua"))("CheapWrits", addon)
 end
 
 local itemIDs = {
@@ -118,10 +118,10 @@ assert(shown[2].reputation == 75 and shown[2].costPer100Rep == 425 * 100 / 75)
 assert(shown[1].itemName == "Golden Rod" and shown[1].total == 380)
 assert(shown[3].total == nil)
 assert(addon.scannedAt == 0)
-assert(WritMaxxerDB.snapshot.requestedAt == 100000)
-assert(#WritMaxxerDB.snapshot.listings == 10)
-assert(WritMaxxerDB.snapshot.listings[1].icon == 123)
-assert(WritMaxxerDB.snapshot.listings[2].itemID == 264021)
+assert(CheapWritsDB.snapshot.requestedAt == 100000)
+assert(#CheapWritsDB.snapshot.listings == 10)
+assert(CheapWritsDB.snapshot.listings[1].icon == 123)
+assert(CheapWritsDB.snapshot.listings[2].itemID == 264021)
 assert(shown[1].writIcon == 123 and shown[1].itemIcon == 123)
 local oldResults = shown
 local messageCount = #addon.messages
@@ -131,17 +131,17 @@ addon:StartScan()
 assert(requests == 1 and messageContains("cooldown") and shown == oldResults)
 
 -- The cooldown survives reloads, and a new request is allowed once it expires.
-local saved = WritMaxxerDB
+local saved = CheapWritsDB
 setup(saved)
 serverTime = 100120
-local lastRequest = WritMaxxerDB.lastSnapshotRequestAt
+local lastRequest = CheapWritsDB.lastSnapshotRequestAt
 addon:ReplayScan()
 assert(requests == 0 and reads == 0 and #shown == 3)
 assert(shown[2].total == 425 and shown[1].total == 380)
 assert(shown[2].reputation == 75 and shown[2].costPer100Rep == 425 * 100 / 75)
 assert(shown[1].writIcon == 123 and shown[1].itemIcon == 123)
 assert(addon.scannedAt == -120, "Replay must preserve the snapshot's original age")
-assert(WritMaxxerDB.lastSnapshotRequestAt == lastRequest)
+assert(CheapWritsDB.lastSnapshotRequestAt == lastRequest)
 local calculate = addon.Prices.BuildRows
 local recalculated = false
 addon.Prices.BuildRows = function(listings)
@@ -238,13 +238,13 @@ assert(#shown == 1 and shown[1].total == 400)
 -- Closing or disabling the AH cancels; late replies do not publish results.
 for _, closeEvent in ipairs({ "AUCTION_HOUSE_CLOSED", "AUCTION_HOUSE_DISABLED" }) do
     setup()
-    WritMaxxerDB.snapshot = saved.snapshot
+    CheapWritsDB.snapshot = saved.snapshot
     addon.results = oldResults
     event("AUCTION_HOUSE_SHOW")
     addon:StartScan()
     event(closeEvent)
     assert(not frame.shown and addon.results == oldResults)
-    assert(WritMaxxerDB.snapshot == saved.snapshot)
+    assert(CheapWritsDB.snapshot == saved.snapshot)
     event("REPLICATE_ITEM_LIST_UPDATE")
     tick(5)
     assert(not shown)
@@ -308,7 +308,7 @@ finish()
 assert(#shown == 1 and shown[1].total == 400)
 assert(shown[1].itemName == "Lokalisierter Gegenstand")
 
-local localizedSnapshot = WritMaxxerDB
+local localizedSnapshot = CheapWritsDB
 setup(localizedSnapshot)
 addon:ReplayScan()
 assert(requests == 0 and #shown == 1 and shown[1].total == 400)
