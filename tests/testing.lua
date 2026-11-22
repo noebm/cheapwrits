@@ -8,6 +8,47 @@ function xpcall(callback, handler, ...)
     return nativeXpcall(function() return callback(unpack(args, 1, count)) end, handler)
 end
 
+-- Model the popup lifecycle used by WoW: reuse cancels, acceptance hides afterward.
+function testing.mock_static_popups(onChanged)
+    local current
+    local dialogFrame = {}
+    StaticPopupDialogs = {}
+
+    local function setCurrent(dialog)
+        current = dialog
+        onChanged(dialog)
+    end
+
+    function StaticPopup_Show(key, text, _, data)
+        local dialog = dialogFrame
+        if current then
+            dialog:Hide()
+            local definition = StaticPopupDialogs[dialog.key]
+            if not definition.noCancelOnReuse and definition.OnCancel then
+                definition.OnCancel(dialog, dialog.data, 'override')
+            end
+        end
+
+        dialog.key, dialog.text, dialog.data = key, text, data
+        function dialog:Hide()
+            if current == self then setCurrent(nil) end
+        end
+        setCurrent(dialog)
+        return dialog
+    end
+
+    function StaticPopup_Hide(key)
+        if current and current.key == key then current:Hide() end
+    end
+end
+
+function testing.accept_popup(dialog)
+    local key = dialog.key
+    local keepOpen = StaticPopupDialogs[key].OnAccept(dialog, dialog.data)
+    if not keepOpen and dialog.key == key then dialog:Hide() end
+    return keepOpen
+end
+
 -- Map names to functions, or to { run = function, cases = { { arguments... }, ... } }.
 -- A plain function runs once; an explicit empty cases table runs no cases.
 -- Prints and returns separate counts of named tests and executed cases; stops on failure.

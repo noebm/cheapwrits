@@ -27,4 +27,25 @@ local handled, message = xpcall(function(value) error(value, 0) end, function(va
     return 'handled: ' .. value
 end, 'expected failure')
 assert(not handled and message == 'handled: expected failure')
+
+local popup, cancelled
+testing.mock_static_popups(function(dialog) popup = dialog end)
+StaticPopupDialogs.TEST = {
+    OnAccept = function(dialog)
+        assert(popup == dialog, 'WoW calls OnAccept before hiding the popup')
+        return true
+    end,
+    OnCancel = function(_, data, reason)
+        assert(reason == 'override')
+        cancelled = data
+    end,
+}
+local dialog = StaticPopup_Show('TEST', 'first', nil, 'old')
+assert(testing.accept_popup(dialog) and popup == dialog)
+StaticPopup_Show('TEST', 'second', nil, 'new')
+assert(cancelled == 'old' and popup == dialog)
+StaticPopupDialogs.TEST.OnAccept = function() return false end
+testing.accept_popup(dialog)
+assert(not popup)
+assert(StaticPopup_Show('TEST', 'third') == dialog, 'Hidden popup frames are reused')
 print('testing module tests passed')
