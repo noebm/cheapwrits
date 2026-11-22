@@ -11,3 +11,5 @@ Download a ZIP from GitHub Releases or Actions artifacts and extract its `CheapW
 - `/cwr scan` — Scan auction prices. Keep the auction house open until complete.
 - `/cwr replay` — Recalculate the saved snapshot, including after `/reload`.
 - `/cwr results` — Open the current results.
+
+Click the writ icon on the minimap to open the current results.
