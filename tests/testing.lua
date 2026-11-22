@@ -3,7 +3,7 @@ local unpack = unpack or table.unpack
 
 -- Map names to functions, or to { run = function, cases = { { arguments... }, ... } }.
 -- A plain function runs once; an explicit empty cases table runs no cases.
--- Returns separate counts of named tests and executed cases; stops on failure.
+-- Prints and returns separate counts of named tests and executed cases; stops on failure.
 function testing.run_tests(tests)
     local names = {}
     for name in pairs(tests) do names[#names + 1] = name end
@@ -27,6 +27,8 @@ function testing.run_tests(tests)
 
         counts.tests = counts.tests + 1
     end
+
+    print(string.format('tests passed (%d tests, %d cases)', counts.tests, counts.cases))
 
     return counts
 end

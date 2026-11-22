@@ -143,4 +143,3 @@ tests['supported writs have valid identity quantity and reputation data'] = func
 end
 
 testing.run_tests(tests)
-print(string.format('prices tests passed (%d tests, %d cases)', counts.tests, counts.cases))

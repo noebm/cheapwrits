@@ -199,5 +199,4 @@ tests['asynchronous item metadata updates preserve rows and the current view'] =
     assert(next(lookups) == nil, 'Ignore unrelated and failed loads')
 end
 
-local counts = testing.run_tests(tests)
-print(string.format('results tests passed (%d tests, %d cases)', counts.tests, counts.cases))
+testing.run_tests(tests)

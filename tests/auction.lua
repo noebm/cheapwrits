@@ -340,5 +340,4 @@ tests['localized snapshots scan and replay using item IDs'] = function()
     assert(shown[1].itemName == "Lokalisierter Gegenstand")
 end
 
-local counts = testing.run_tests(tests)
-print(string.format('auction tests passed (%d tests, %d cases)', counts.tests, counts.cases))
+testing.run_tests(tests)
