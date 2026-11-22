@@ -1,3 +1,6 @@
+local testing = dofile('tests/testing.lua')
+local tests = {}
+
 local addon, frame, snapshot, requests, shown, now, serverTime, hooks, reads, requestedItems
 local failRequest
 
@@ -81,237 +84,261 @@ local function messageContains(text)
     return false
 end
 
-setup()
-addon:StartScan()
-assert(requests == 0 and messageContains("Open the auction house"))
-event("AUCTION_HOUSE_SHOW")
-addon:StartScan()
-assert(requests == 1 and frame.shown)
-addon:StartScan()
-assert(requests == 1 and messageContains("already in progress"))
-assert(reads == 0)
-tick(5)
-assert(messageContains("Waiting for auction snapshot"))
-assert(reads == 0, "Must wait for the snapshot event, not read a stale cache")
-
-snapshot = {
-    listing("Craftsman's Writ: Golden Rod", 1, 100),
-    listing("Craftsman's Writ: Golden Rod", 1, 80),
-    listing("Golden Rod", 2, 600),
-    listing("Recipe: Golden Rod", 1, 1),
-    listing("Craftsman's Writ: Crafted Solid Shot", 1, 25),
-    listing("Crafted Solid Shot", 100, 100),
-    listing("Crafted Solid Shot", 150, 450),
-    listing("Sealed Journeyman's Writ", 1, 1),
-    listing("Craftsman's Writ: Barbaric Gloves", 1, 0),
-    listing("Barbaric Gloves", 1, 10),
-}
-local sold = listing("Golden Rod", 1, 1)
-sold.sold = true
-snapshot[#snapshot + 1] = sold
-event("REPLICATE_ITEM_LIST_UPDATE")
-event("REPLICATE_ITEM_LIST_UPDATE") -- Duplicate notifications must not double count.
-finish()
-assert(requests == 1 and #shown == 3)
-assert(shown[2].itemName == "Crafted Solid Shot" and shown[2].total == 425)
-assert(shown[2].reputation == 75 and shown[2].costPer100Rep == 425 * 100 / 75)
-assert(shown[1].itemName == "Golden Rod" and shown[1].total == 380)
-assert(shown[3].total == nil)
-assert(addon.scannedAt == 0)
-assert(CheapWritsDB.snapshot.requestedAt == 100000)
-assert(#CheapWritsDB.snapshot.listings == 10)
-assert(CheapWritsDB.snapshot.listings[1].icon == 123)
-assert(CheapWritsDB.snapshot.listings[2].itemID == 264021)
-assert(shown[1].writIcon == 123 and shown[1].itemIcon == 123)
-local oldResults = shown
-local messageCount = #addon.messages
-tick(5)
-assert(#addon.messages == messageCount)
-addon:StartScan()
-assert(requests == 1 and messageContains("cooldown") and shown == oldResults)
-
--- The cooldown survives reloads, and a new request is allowed once it expires.
-local saved = CheapWritsDB
-setup(saved)
-serverTime = 100120
-local lastRequest = CheapWritsDB.lastSnapshotRequestAt
-addon:ReplayScan()
-assert(requests == 0 and reads == 0 and #shown == 3)
-assert(shown[2].total == 425 and shown[1].total == 380)
-assert(shown[2].reputation == 75 and shown[2].costPer100Rep == 425 * 100 / 75)
-assert(shown[1].writIcon == 123 and shown[1].itemIcon == 123)
-assert(addon.scannedAt == -120, "Replay must preserve the snapshot's original age")
-assert(CheapWritsDB.lastSnapshotRequestAt == lastRequest)
-local calculate = addon.Prices.BuildRows
-local recalculated = false
-addon.Prices.BuildRows = function(listings)
-    recalculated = true
-    return calculate(listings)
-end
-addon:ReplayScan()
-assert(recalculated and requests == 0 and reads == 0)
-event("AUCTION_HOUSE_SHOW")
-addon:StartScan()
-assert(requests == 0 and messageContains("cooldown"))
-tick(901)
-addon:StartScan()
-assert(requests == 1)
-event("REPLICATE_ITEM_LIST_UPDATE")
-finish()
-assert(shown and #shown == 0)
-
--- Large snapshots are processed over multiple frames, with progress updates.
-setup()
-event("AUCTION_HOUSE_SHOW")
-addon:StartScan()
-for index = 1, 2000 do snapshot[index] = listing("Unrelated Item", 1, 5) end
-snapshot[2001] = listing("Craftsman's Writ: Golden Rod", 1, 100)
-snapshot[2002] = listing("Golden Rod", 1, 300)
-event("REPLICATE_ITEM_LIST_UPDATE")
-assert(reads == 0, "Event handler must not process the full snapshot")
-tick(5)
-assert(frame.shown and reads > 0 and reads < #snapshot)
-tick(5)
-assert(messageContains("listings processed"))
-finish()
-assert(#shown == 1 and shown[1].total == 400)
-
--- The time budget also yields early when individual API reads are expensive.
-setup()
-event("AUCTION_HOUSE_SHOW")
-addon:StartScan()
-for index = 1, 100 do snapshot[index] = listing("Unrelated Item", 1, 5) end
-event("REPLICATE_ITEM_LIST_UPDATE")
-local profileTime = 0
-function debugprofilestop()
-    profileTime = profileTime + 2
-    return profileTime
-end
-tick()
-assert(frame.shown and reads == 1)
-function debugprofilestop() return 0 end
-finish()
-assert(#shown == 0)
-
--- Resolve missing names without silently publishing incomplete prices.
-setup()
-event("AUCTION_HOUSE_SHOW")
-addon:StartScan()
-snapshot = { listing(nil, 1, 100), listing("Golden Rod", 1, 300) }
-snapshot[1].itemID = 264021
-event("REPLICATE_ITEM_LIST_UPDATE")
-tick()
-assert(not shown and requestedItems[264021] == 1)
-tick()
-assert(not shown and requestedItems[264021] == 1)
-snapshot[1].name = "Craftsman's Writ: Golden Rod"
-finish()
-assert(#shown == 1 and shown[1].total == 400)
-
--- Resolving a later missing name must not skip or count other pending rows twice.
-setup()
-event("AUCTION_HOUSE_SHOW")
-addon:StartScan()
-snapshot = { listing(nil, 1, 100), listing(nil, 1, 300), listing(nil, 1, 200) }
-snapshot[1].itemID, snapshot[2].itemID = 264021, 11128
-event("REPLICATE_ITEM_LIST_UPDATE")
-tick()
-snapshot[2].name = "Golden Rod"
-tick()
-assert(not shown)
-snapshot[1].name = "Craftsman's Writ: Golden Rod"
-snapshot[3].name = "Unrelated Item"
-finish()
-assert(#shown == 1 and shown[1].total == 400)
-
--- A link can provide the exact display name before item data is cached.
-setup()
-event("AUCTION_HOUSE_SHOW")
-addon:StartScan()
-snapshot = { listing(nil, 1, 100), listing("Golden Rod", 1, 300) }
-snapshot[1].itemID = 264021
-snapshot[1].link = "|cffffffff|Hitem:264021::::::::|h[Craftsman's Writ: Golden Rod]|h|r"
-event("REPLICATE_ITEM_LIST_UPDATE")
-finish()
-assert(#shown == 1 and shown[1].total == 400)
-
--- Closing or disabling the AH cancels; late replies do not publish results.
-for _, closeEvent in ipairs({ "AUCTION_HOUSE_CLOSED", "AUCTION_HOUSE_DISABLED" }) do
+tests['snapshot scan replay and cooldown lifecycle'] = function()
     setup()
-    CheapWritsDB.snapshot = saved.snapshot
-    addon.results = oldResults
+    addon:StartScan()
+    assert(requests == 0 and messageContains("Open the auction house"))
     event("AUCTION_HOUSE_SHOW")
     addon:StartScan()
-    event(closeEvent)
-    assert(not frame.shown and addon.results == oldResults)
-    assert(CheapWritsDB.snapshot == saved.snapshot)
-    event("REPLICATE_ITEM_LIST_UPDATE")
+    assert(requests == 1 and frame.shown)
+    addon:StartScan()
+    assert(requests == 1 and messageContains("already in progress"))
+    assert(reads == 0)
     tick(5)
-    assert(not shown)
-end
+    assert(messageContains("Waiting for auction snapshot"))
+    assert(reads == 0, "Must wait for the snapshot event, not read a stale cache")
 
--- Timeout and unresolved names preserve previous results; no automatic retries.
-for _, received in ipairs({ false, true }) do
-    setup()
-    addon.results = oldResults
+    snapshot = {
+        listing("Craftsman's Writ: Golden Rod", 1, 100),
+        listing("Craftsman's Writ: Golden Rod", 1, 80),
+        listing("Golden Rod", 2, 600),
+        listing("Recipe: Golden Rod", 1, 1),
+        listing("Craftsman's Writ: Crafted Solid Shot", 1, 25),
+        listing("Crafted Solid Shot", 100, 100),
+        listing("Crafted Solid Shot", 150, 450),
+        listing("Sealed Journeyman's Writ", 1, 1),
+        listing("Craftsman's Writ: Barbaric Gloves", 1, 0),
+        listing("Barbaric Gloves", 1, 10),
+    }
+    local sold = listing("Golden Rod", 1, 1)
+    sold.sold = true
+    snapshot[#snapshot + 1] = sold
+    event("REPLICATE_ITEM_LIST_UPDATE")
+    event("REPLICATE_ITEM_LIST_UPDATE") -- Duplicate notifications must not double count.
+    finish()
+    assert(requests == 1 and #shown == 3)
+    assert(shown[2].itemName == "Crafted Solid Shot" and shown[2].total == 425)
+    assert(shown[2].reputation == 75 and shown[2].costPer100Rep == 425 * 100 / 75)
+    assert(shown[1].itemName == "Golden Rod" and shown[1].total == 380)
+    assert(shown[3].total == nil)
+    assert(addon.scannedAt == 0)
+    assert(CheapWritsDB.snapshot.requestedAt == 100000)
+    assert(#CheapWritsDB.snapshot.listings == 10)
+    assert(CheapWritsDB.snapshot.listings[1].icon == 123)
+    assert(CheapWritsDB.snapshot.listings[2].itemID == 264021)
+    assert(shown[1].writIcon == 123 and shown[1].itemIcon == 123)
+    local oldResults = shown
+    local messageCount = #addon.messages
+    tick(5)
+    assert(#addon.messages == messageCount)
+    addon:StartScan()
+    assert(requests == 1 and messageContains("cooldown") and shown == oldResults)
+
+    -- The cooldown survives reloads, and a new request is allowed once it expires.
+    local saved = CheapWritsDB
+    setup(saved)
+    serverTime = 100120
+    local lastRequest = CheapWritsDB.lastSnapshotRequestAt
+    addon:ReplayScan()
+    assert(requests == 0 and reads == 0 and #shown == 3)
+    assert(shown[2].total == 425 and shown[1].total == 380)
+    assert(shown[2].reputation == 75 and shown[2].costPer100Rep == 425 * 100 / 75)
+    assert(shown[1].writIcon == 123 and shown[1].itemIcon == 123)
+    assert(addon.scannedAt == -120, "Replay must preserve the snapshot's original age")
+    assert(CheapWritsDB.lastSnapshotRequestAt == lastRequest)
+    local calculate = addon.Prices.BuildRows
+    local recalculated = false
+    addon.Prices.BuildRows = function(listings)
+        recalculated = true
+        return calculate(listings)
+    end
+    addon:ReplayScan()
+    assert(recalculated and requests == 0 and reads == 0)
     event("AUCTION_HOUSE_SHOW")
     addon:StartScan()
-    if received then
-        snapshot = { listing(nil, 1, 100) }
-        event("REPLICATE_ITEM_LIST_UPDATE")
-        tick()
-    end
-    tick(121)
-    assert(not frame.shown and not shown and addon.results == oldResults)
-    assert(messageContains("timed out") and requests == 1)
+    assert(requests == 0 and messageContains("cooldown"))
+    tick(901)
+    addon:StartScan()
+    assert(requests == 1)
+    event("REPLICATE_ITEM_LIST_UPDATE")
+    finish()
+    assert(shown and #shown == 0)
 end
 
--- Other snapshot requests consume the same cooldown and cannot replace an active scan.
-setup()
-event("AUCTION_HOUSE_SHOW")
-C_AuctionHouse.ReplicateItems()
-addon:StartScan()
-assert(requests == 1 and messageContains("cooldown"))
-tick(901)
-addon:StartScan()
-C_AuctionHouse.ReplicateItems()
-assert(not frame.shown and messageContains("another snapshot"))
+tests['large snapshots yield across frames and report progress'] = function()
+    setup()
+    event("AUCTION_HOUSE_SHOW")
+    addon:StartScan()
+    for index = 1, 2000 do snapshot[index] = listing("Unrelated Item", 1, 5) end
+    snapshot[2001] = listing("Craftsman's Writ: Golden Rod", 1, 100)
+    snapshot[2002] = listing("Golden Rod", 1, 300)
+    event("REPLICATE_ITEM_LIST_UPDATE")
+    assert(reads == 0, "Event handler must not process the full snapshot")
+    tick(5)
+    assert(frame.shown and reads > 0 and reads < #snapshot)
+    tick(5)
+    assert(messageContains("listings processed"))
+    finish()
+    assert(#shown == 1 and shown[1].total == 400)
+end
 
-setup()
-event("AUCTION_HOUSE_SHOW")
-failRequest = true
-addon:StartScan()
-assert(not frame.shown and messageContains("failed"))
-failRequest = false
-addon:StartScan()
-assert(requests == 1, "A failed call must not consume the local cooldown")
+tests['expensive API reads yield within the time budget'] = function()
+    setup()
+    event("AUCTION_HOUSE_SHOW")
+    addon:StartScan()
+    for index = 1, 100 do snapshot[index] = listing("Unrelated Item", 1, 5) end
+    event("REPLICATE_ITEM_LIST_UPDATE")
+    local profileTime = 0
+    function debugprofilestop()
+        profileTime = profileTime + 2
+        return profileTime
+    end
+    tick()
+    assert(frame.shown and reads == 1)
+    function debugprofilestop() return 0 end
+    finish()
+    assert(#shown == 0)
+end
 
-setup()
-addon:ReplayScan()
-assert(not shown and requests == 0 and messageContains("No saved snapshot"))
-event("AUCTION_HOUSE_SHOW")
-addon:StartScan()
-addon:ReplayScan()
-assert(not shown and requests == 1 and messageContains("already in progress"))
+tests['missing names defer publishing and request item data once'] = function()
+    setup()
+    event("AUCTION_HOUSE_SHOW")
+    addon:StartScan()
+    snapshot = { listing(nil, 1, 100), listing("Golden Rod", 1, 300) }
+    snapshot[1].itemID = 264021
+    event("REPLICATE_ITEM_LIST_UPDATE")
+    tick()
+    assert(not shown and requestedItems[264021] == 1)
+    tick()
+    assert(not shown and requestedItems[264021] == 1)
+    snapshot[1].name = "Craftsman's Writ: Golden Rod"
+    finish()
+    assert(#shown == 1 and shown[1].total == 400)
+end
 
-setup()
-function GetLocale() return "deDE" end
-event("AUCTION_HOUSE_SHOW")
-addon:StartScan()
-assert(requests == 1)
-snapshot = {
-    { name = "Lokalisierter Auftrag", itemID = 264021, quantity = 1, buyout = 100 },
-    { name = "Lokalisierter Gegenstand", itemID = 11128, quantity = 1, buyout = 300 },
+tests['resolving names out of order does not skip or duplicate rows'] = function()
+    setup()
+    event("AUCTION_HOUSE_SHOW")
+    addon:StartScan()
+    snapshot = { listing(nil, 1, 100), listing(nil, 1, 300), listing(nil, 1, 200) }
+    snapshot[1].itemID, snapshot[2].itemID = 264021, 11128
+    event("REPLICATE_ITEM_LIST_UPDATE")
+    tick()
+    snapshot[2].name = "Golden Rod"
+    tick()
+    assert(not shown)
+    snapshot[1].name = "Craftsman's Writ: Golden Rod"
+    snapshot[3].name = "Unrelated Item"
+    finish()
+    assert(#shown == 1 and shown[1].total == 400)
+end
+
+tests['item links supply display names before item data is cached'] = function()
+    setup()
+    event("AUCTION_HOUSE_SHOW")
+    addon:StartScan()
+    snapshot = { listing(nil, 1, 100), listing("Golden Rod", 1, 300) }
+    snapshot[1].itemID = 264021
+    snapshot[1].link = "|cffffffff|Hitem:264021::::::::|h[Craftsman's Writ: Golden Rod]|h|r"
+    event("REPLICATE_ITEM_LIST_UPDATE")
+    finish()
+    assert(#shown == 1 and shown[1].total == 400)
+end
+
+tests['closing the auction house cancels and ignores late replies'] = {
+    cases = { { "AUCTION_HOUSE_CLOSED" }, { "AUCTION_HOUSE_DISABLED" } },
+    run = function(closeEvent)
+        local oldResults = { { itemID = 11128, total = 400 } }
+        local saved = { snapshot = { listings = {} } }
+
+        setup()
+        CheapWritsDB.snapshot = saved.snapshot
+        addon.results = oldResults
+        event("AUCTION_HOUSE_SHOW")
+        addon:StartScan()
+        event(closeEvent)
+        assert(not frame.shown and addon.results == oldResults)
+        assert(CheapWritsDB.snapshot == saved.snapshot)
+        event("REPLICATE_ITEM_LIST_UPDATE")
+        tick(5)
+        assert(not shown)
+    end,
 }
-event("REPLICATE_ITEM_LIST_UPDATE")
-finish()
-assert(#shown == 1 and shown[1].total == 400)
-assert(shown[1].itemName == "Lokalisierter Gegenstand")
 
-local localizedSnapshot = CheapWritsDB
-setup(localizedSnapshot)
-addon:ReplayScan()
-assert(requests == 0 and #shown == 1 and shown[1].total == 400)
-assert(shown[1].itemName == "Lokalisierter Gegenstand")
+tests['timeouts preserve previous results without retries'] = {
+    cases = { { false }, { true } },
+    run = function(received)
+        local oldResults = { { itemID = 11128, total = 400 } }
 
-print("Snapshot auction lifecycle tests passed")
+        setup()
+        addon.results = oldResults
+        event("AUCTION_HOUSE_SHOW")
+        addon:StartScan()
+        if received then
+            snapshot = { listing(nil, 1, 100) }
+            event("REPLICATE_ITEM_LIST_UPDATE")
+            tick()
+        end
+        tick(121)
+        assert(not frame.shown and not shown and addon.results == oldResults)
+        assert(messageContains("timed out") and requests == 1)
+    end,
+}
+
+tests['other snapshot requests share cooldown and cancel active scans'] = function()
+    setup()
+    event("AUCTION_HOUSE_SHOW")
+    C_AuctionHouse.ReplicateItems()
+    addon:StartScan()
+    assert(requests == 1 and messageContains("cooldown"))
+    tick(901)
+    addon:StartScan()
+    C_AuctionHouse.ReplicateItems()
+    assert(not frame.shown and messageContains("another snapshot"))
+end
+
+tests['failed snapshot requests do not consume cooldown'] = function()
+    setup()
+    event("AUCTION_HOUSE_SHOW")
+    failRequest = true
+    addon:StartScan()
+    assert(not frame.shown and messageContains("failed"))
+    failRequest = false
+    addon:StartScan()
+    assert(requests == 1, "A failed call must not consume the local cooldown")
+end
+
+tests['replay rejects absent snapshots and active scans'] = function()
+    setup()
+    addon:ReplayScan()
+    assert(not shown and requests == 0 and messageContains("No saved snapshot"))
+    event("AUCTION_HOUSE_SHOW")
+    addon:StartScan()
+    addon:ReplayScan()
+    assert(not shown and requests == 1 and messageContains("already in progress"))
+end
+
+tests['localized snapshots scan and replay using item IDs'] = function()
+    setup()
+    function GetLocale() return "deDE" end
+    event("AUCTION_HOUSE_SHOW")
+    addon:StartScan()
+    assert(requests == 1)
+    snapshot = {
+        { name = "Lokalisierter Auftrag", itemID = 264021, quantity = 1, buyout = 100 },
+        { name = "Lokalisierter Gegenstand", itemID = 11128, quantity = 1, buyout = 300 },
+    }
+    event("REPLICATE_ITEM_LIST_UPDATE")
+    finish()
+    assert(#shown == 1 and shown[1].total == 400)
+    assert(shown[1].itemName == "Lokalisierter Gegenstand")
+
+    local localizedSnapshot = CheapWritsDB
+    setup(localizedSnapshot)
+    addon:ReplayScan()
+    assert(requests == 0 and #shown == 1 and shown[1].total == 400)
+    assert(shown[1].itemName == "Lokalisierter Gegenstand")
+end
+
+local counts = testing.run_tests(tests)
+print(string.format('auction tests passed (%d tests, %d cases)', counts.tests, counts.cases))
