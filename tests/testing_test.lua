@@ -14,4 +14,17 @@ local ok, err = pcall(testing.run_tests, {
     broken = { run = function() error('expected failure') end, cases = { {} } },
 })
 assert(not ok and err:find('broken') and err:find('case 1') and err:find('expected failure'))
+
+local success, first, second, third = xpcall(function(...)
+    assert(select('#', ...) == 3)
+    local a, b, c = ...
+    assert(a == 42 and b == nil and c == nil)
+    return a, nil, 'last'
+end, tostring, 42, nil, nil)
+assert(success and first == 42 and second == nil and third == 'last')
+
+local handled, message = xpcall(function(value) error(value, 0) end, function(value)
+    return 'handled: ' .. value
+end, 'expected failure')
+assert(not handled and message == 'handled: expected failure')
 print('testing module tests passed')

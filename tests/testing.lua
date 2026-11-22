@@ -1,5 +1,12 @@
 local testing = {}
 local unpack = unpack or table.unpack
+local nativeXpcall = xpcall
+
+-- Match WoW's argument-forwarding xpcall when testing with standard Lua 5.1.
+function xpcall(callback, handler, ...)
+    local args, count = { ... }, select('#', ...)
+    return nativeXpcall(function() return callback(unpack(args, 1, count)) end, handler)
+end
 
 -- Map names to functions, or to { run = function, cases = { { arguments... }, ... } }.
 -- A plain function runs once; an explicit empty cases table runs no cases.
